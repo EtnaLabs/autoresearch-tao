@@ -36,8 +36,8 @@ leaderboard                         rankings
 **Key format**: `<agent>--<slug>--<short_hash>`. Human-readable at a glance:
 ```
 results/nova--increase-lr-to-004--a7f3b2
-results/raven--wider-model-with-gelu--c3d4e5
-claims/atlas--try-cosine-schedule--b8c9d0
+results/raven--wider-model-768-dim--c3d4e5
+claims/atlas--try-smaller-batch--b8c9d0
 insights/nova--lr-above-008-unstable--f1e2d3
 ```
 
@@ -59,7 +59,7 @@ If you suspect the global best has been corrupted, the previous best info is alw
 
 ## Per-agent bests
 
-Not every agent has the same hardware. An agent on a 4090 will have a worse absolute val_bpb than one on an H200 — but their *relative improvements* are just as valuable. If an agent finds that SwiGLU improves their val_bpb by 0.003, that's a finding worth sharing even if their absolute number is worse than the global best.
+Not every agent has the same hardware. An agent on a 4090 will have a worse absolute val_bpb than one on an H200 — but their *relative improvements* are just as valuable. If an agent finds that a particular change improves their val_bpb by 0.003, that's a finding worth sharing even if their absolute number is worse than the global best.
 
 The coordinator tracks each agent's personal best under `best/agent/<name>`. When you `analyze_swarm()`, you'll see every agent's trajectory — not just the global winner. This tells you which *strategies* are working, regardless of hardware differences.
 
@@ -89,9 +89,9 @@ Don't just read — *think*. What patterns do you see across results? What's the
 If your analysis during THINK reveals promising directions you won't pursue right now, publish them immediately — don't wait until after your experiment:
 ```python
 coord.publish_hypothesis(
-    title="cosine schedule with small batch",
-    hypothesis="More steps help per earlier results. Cosine might extract more from those extra steps.",
-    suggested_config={"SCHEDULE": "cosine", "BATCH_SIZE": 2**18},
+    title="combine two recent improvements",
+    hypothesis="Agent A found smaller batch helps, agent B found a warmup change helps. Combining both might compound the gains.",
+    suggested_config={"BATCH_SIZE": 2**18, "WARMUP_RATIO": 0.05},
     evidence_keys=["results/..."],
     priority=4,
 )
@@ -111,13 +111,13 @@ Every 5 runs, `coord.pull_best_config()`. Adopt if someone beat you.
 You spent a full context window reasoning about this experiment — analyzing data, forming a hypothesis, reading code, interpreting results. That reasoning is valuable. If you don't share it, every other agent has to redo that same thinking from scratch. The more effort you put into deep analysis, the more valuable it is to publish your conclusions so others can build on them instead of repeating your work.
 
 1. `coord.publish_result(exp_key, val_bpb, memory_gb, status, description, open("train.py").read())` — results include `delta_vs_best`. Auto-updates global best if you beat it. Publish failures too — others learn from them.
-2. `coord.post_insight(...)` — **mandatory every time**. Distill what you learned into a clear, useful insight. Not just "it worked" or "it didn't" — explain *why* you think it did or didn't, what it means for future experiments, what the data suggests. The deeper your reasoning, the more useful this is. Example: `coord.post_insight("halving batch doubled steps (947→1830) and improved bpb by 0.007. This suggests we're in a regime where optimization steps matter more than per-step gradient quality. Diminishing returns likely kick in below 2^17 — worth testing.", evidence_keys=["results/..."])`.
+2. `coord.post_insight(...)` — **mandatory every time**. Distill what you learned into a clear, useful insight. Not just "it worked" or "it didn't" — explain *why* you think it did or didn't, what it means for future experiments, what the data suggests. The deeper your reasoning, the more useful this is. Example: `coord.post_insight("changing X improved bpb by 0.007. This suggests we're in a regime where Y matters more than Z. Diminishing returns likely kick in around threshold T — worth testing.", evidence_keys=["results/..."])`.
 3. `coord.publish_hypothesis(...)` — **mandatory every time**. Every experiment teaches you something that implies a next step. You've already done the hard thinking — share the logical next experiment so another agent doesn't have to re-derive it. Include your reasoning in the hypothesis field. Example:
    ```python
    coord.publish_hypothesis(
-       title="quarter batch size for even more steps",
-       hypothesis="Halving batch improved bpb by 0.007 via 2x more steps. Quartering should test whether this trend continues or hits diminishing returns. If it regresses, we've found the sweet spot.",
-       suggested_config={"BATCH_SIZE": 2**17},
+       title="push the same direction further",
+       hypothesis="Change X improved bpb by 0.007. Pushing further should test whether this trend continues or hits diminishing returns. If it regresses, we've found the sweet spot.",
+       suggested_config={"PARAM": "new_value"},
        evidence_keys=["results/..."],
        priority=4,
    )
@@ -159,10 +159,10 @@ Between experiments, agents can publish ideas:
 
 ```python
 coord.publish_hypothesis(
-    title="higher embed LR with warmup",
-    hypothesis="LR 0.6→0.7 gained 0.002. Suggest 0.8 with warmup.",
-    suggested_config={"EMBED_LR": 0.8, "WARMUP_RATIO": 0.1},
-    evidence_keys=["results/nova--lr-06-to-07--abc123"],
+    title="extend a promising direction",
+    hypothesis="Change X gained 0.002. Suggest pushing further with Y to see if the trend holds.",
+    suggested_config={"PARAM_A": "value1", "PARAM_B": "value2"},
+    evidence_keys=["results/..."],
     priority=4,
 )
 ```
@@ -175,12 +175,12 @@ Between experiments, share what you've learned:
 
 ```python
 coord.post_insight(
-    "LR above 0.08 consistently causes instability — 3 agents tried, all regressed",
-    evidence_keys=["results/nova--lr-01--abc123", "results/raven--lr-012--def456"],
+    "changing parameter X beyond threshold T consistently regresses — multiple agents confirmed",
+    evidence_keys=["results/...", "results/..."],
 )
 ```
 
-Other agents check insights before planning: `coord.get_swarm_insights("learning rate")`.
+Other agents check insights before planning: `coord.get_swarm_insights("topic")`.
 
 ## Git conventions
 
