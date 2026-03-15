@@ -18,8 +18,7 @@ import time
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse
 
-import bittensor as bt
-import torch
+import requests
 
 from protocol import ExperimentResult
 
@@ -58,9 +57,9 @@ class SubmissionStore:
                         existing = self._best_per_miner.get(aid)
                         if not existing or r["val_bpb"] < existing["val_bpb"]:
                             self._best_per_miner[aid] = r
-                bt.logging.info(f"Loaded {len(self._results)} existing results from {self._results_file}")
+                print(f"Loaded {len(self._results)} existing results from {self._results_file}")
             except Exception as e:
-                bt.logging.warning(f"Could not load {self._results_file}: {e}")
+                print(f"Warning: could not load {self._results_file}: {e}")
 
     def receive(self, result: ExperimentResult) -> bool:
         now = time.time()
@@ -128,12 +127,14 @@ class SubmissionStore:
                     "score": best.get("score", 0),
                     "lastSeen": best.get("timestamp", 0),
                     "taoEarned": round(self._tao_earned.get(aid, 0.0), 4),
+                    "rewardWallet": self._reward_wallets.get(aid, ""),
                 })
             entries.sort(key=lambda e: e["bestBpb"])
             return entries
 
-    def get_scores_for_uids(self, metagraph, uid_to_agent: dict[int, str]) -> torch.Tensor:
+    def get_scores_for_uids(self, metagraph, uid_to_agent: dict[int, str]):
         """Build a weight tensor indexed by UID from current scores."""
+        import torch
         n = metagraph.n.item()
         weights = torch.zeros(n)
         with self._lock:
@@ -206,6 +207,7 @@ class SubmissionStore:
                 "globalBestBpb": self.get_global_best_bpb(),
                 "lastUpdated": time.time(),
                 "taoEarned": self._tao_earned,
+                "rewardWallets": self._reward_wallets,
             },
         }
         tmp = self._results_file + ".tmp"
@@ -215,19 +217,95 @@ class SubmissionStore:
 
 
 # ---------------------------------------------------------------------------
-# Validator loop (queries miners via dendrite)
+# Local HTTP validator loop (no Bittensor, queries miners via HTTP)
 # ---------------------------------------------------------------------------
 
-def validator_loop(
-    store: SubmissionStore,
-    subtensor: bt.subtensor,
-    dendrite: bt.dendrite,
-    wallet: bt.wallet,
-    netuid: int,
-    interval: int,
-    time_budget: int,
-):
-    """Background thread: periodically query miners via dendrite and set weights."""
+TAO_PER_ROUND = 1.0  # Mock TAO emission per round (local mode)
+
+def local_validator_loop(store: SubmissionStore, miner_registry: dict, interval: int):
+    """Query miners over HTTP and collect results (local dev mode)."""
+    round_num = 0
+
+    while True:
+        round_num += 1
+        print(f"\n{'='*60}")
+        print(f"  ROUND {round_num}")
+        print(f"{'='*60}")
+
+        miner_urls = list(miner_registry.get("urls", []))
+
+        for url in miner_urls:
+            miner_name = url
+            try:
+                status_resp = requests.get(f"{url}/status", timeout=5)
+                status = status_resp.json()
+                miner_name = status.get("miner_id", url)
+
+                if status.get("status") == "running":
+                    print(f"  [{miner_name}] busy, skipping")
+                    continue
+
+                print(f"  [{miner_name}] requesting experiment...")
+
+                resp = requests.post(f"{url}/run", timeout=120, json={})
+                result_data = resp.json()
+
+                if resp.status_code != 200:
+                    print(f"  [{miner_name}] error: {result_data.get('error', 'unknown')}")
+                    continue
+
+                result = ExperimentResult.from_dict(result_data)
+
+                if result.status == "completed":
+                    accepted = store.receive(result)
+                    status_str = "ACCEPTED" if accepted else "REJECTED"
+                    print(f"  [{miner_name}] val_bpb={result.val_bpb:.4f} — {status_str} (score={result.score:.3f})")
+                else:
+                    print(f"  [{miner_name}] experiment failed: {result.description[:80]}")
+
+            except requests.exceptions.ConnectionError:
+                print(f"  [{miner_name}] offline")
+            except requests.exceptions.Timeout:
+                print(f"  [{miner_name}] timeout")
+            except Exception as e:
+                print(f"  [{miner_name}] error: {e}")
+
+        summary = store.get_summary()
+        leaderboard = store.get_leaderboard()
+
+        print(f"\n  --- Round {round_num} Summary ---")
+        print(f"  Total experiments: {summary['totalExperiments']}")
+        print(f"  Global best BPB:   {summary['globalBestBpb']:.4f}" if summary['globalBestBpb'] else "  Global best BPB:   (none)")
+        print(f"  Active miners:     {summary['totalMiners']}")
+
+        if leaderboard:
+            print(f"\n  --- Leaderboard ---")
+            for i, entry in enumerate(leaderboard):
+                print(f"  #{i+1} {entry['name']:12s}  val_bpb={entry['bestBpb']:.4f}  score={entry['score']:.3f}  experiments={entry['experiments']}")
+
+        if leaderboard:
+            rewards = store.distribute_tao()
+            print(f"\n  --- Setting Weights (mock) — {TAO_PER_ROUND} TAO/round ---")
+            for entry in leaderboard:
+                aid = entry["name"]
+                r = rewards.get(aid, {})
+                round_tao = r.get("round_tao", 0)
+                total_tao = r.get("total_tao", 0)
+                print(f"  {aid:12s}  +{round_tao:.4f} TAO this round  |  total: {total_tao:.4f} TAO")
+
+        print(f"\n  Next round in {interval}s...")
+        time.sleep(interval)
+
+
+# ---------------------------------------------------------------------------
+# Bittensor testnet validator loop (queries miners via dendrite)
+# ---------------------------------------------------------------------------
+
+def testnet_validator_loop(store, subtensor, dendrite, wallet, netuid, interval, time_budget):
+    """Query miners via Bittensor dendrite and set on-chain weights."""
+    import torch
+    import bittensor as bt
+
     round_num = 0
     uid_to_agent: dict[int, str] = {}
 
@@ -235,11 +313,9 @@ def validator_loop(
         round_num += 1
         bt.logging.info(f"\n{'='*60}\n  ROUND {round_num}\n{'='*60}")
 
-        # Sync metagraph to discover miners
         metagraph = subtensor.metagraph(netuid)
         my_uid = metagraph.hotkeys.index(wallet.hotkey.ss58_address)
 
-        # Query all UIDs except ourselves
         uids_to_query = [uid for uid in range(metagraph.n.item()) if uid != my_uid]
 
         if not uids_to_query:
@@ -250,10 +326,8 @@ def validator_loop(
         bt.logging.info(f"  Querying {len(uids_to_query)} miners...")
 
         for uid in uids_to_query:
-            hotkey = metagraph.hotkeys[uid]
             axon_info = metagraph.axons[uid]
 
-            # Skip if axon has no IP (not serving)
             if not axon_info.ip or axon_info.ip == "0.0.0.0":
                 bt.logging.debug(f"  [UID {uid}] not serving, skipping")
                 continue
@@ -261,7 +335,6 @@ def validator_loop(
             try:
                 bt.logging.info(f"  [UID {uid}] querying {axon_info.ip}:{axon_info.port}...")
 
-                # Send synapse via dendrite
                 synapse = ExperimentResult(time_budget=time_budget)
                 response = dendrite.query(
                     axons=[axon_info],
@@ -269,18 +342,16 @@ def validator_loop(
                     timeout=time_budget + 60,
                 )
 
-                # dendrite.query returns a list when given a list of axons
                 result = response[0] if isinstance(response, list) else response
 
                 if result.status == "completed" and result.val_bpb > 0:
-                    # Map UID to agent_id for weight setting
                     uid_to_agent[uid] = result.agent_id
-
                     accepted = store.receive(result)
                     status_str = "ACCEPTED" if accepted else "REJECTED"
+                    reward_info = f"  rewards → {result.reward_wallet}" if result.reward_wallet else ""
                     bt.logging.info(
                         f"  [UID {uid} / {result.agent_id}] "
-                        f"val_bpb={result.val_bpb:.4f} — {status_str} (score={result.score:.3f})"
+                        f"val_bpb={result.val_bpb:.4f} — {status_str} (score={result.score:.3f}){reward_info}"
                     )
                 else:
                     bt.logging.info(f"  [UID {uid}] experiment failed: {result.description[:80]}")
@@ -288,7 +359,6 @@ def validator_loop(
             except Exception as e:
                 bt.logging.warning(f"  [UID {uid}] error: {e}")
 
-        # Print round summary
         summary = store.get_summary()
         leaderboard = store.get_leaderboard()
 
@@ -306,7 +376,6 @@ def validator_loop(
                     f"score={entry['score']:.3f}  experiments={entry['experiments']}"
                 )
 
-        # --- Set on-chain weights ---
         if uid_to_agent:
             weights = store.get_scores_for_uids(metagraph, uid_to_agent)
             nonzero_uids = torch.nonzero(weights).squeeze().tolist()
@@ -334,7 +403,6 @@ def validator_loop(
                 except Exception as e:
                     bt.logging.error(f"  Failed to set weights: {e}")
 
-        # Track TAO distribution locally
         store.distribute_tao()
 
         bt.logging.info(f"\n  Next round in {interval}s...")
@@ -396,6 +464,27 @@ class ValidatorAPIHandler(BaseHTTPRequestHandler):
         else:
             self._send_json(404, {"error": "not found"})
 
+    def do_POST(self):
+        if self.path == "/api/register":
+            content_length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(content_length)
+            try:
+                data = json.loads(body)
+                url = data.get("url", "").strip()
+                miner_id = data.get("miner_id", "").strip()
+                if not url:
+                    self._send_json(400, {"error": "url is required"})
+                    return
+                registry = getattr(self.server, "miner_registry", None)
+                if registry is not None and url not in registry["urls"]:
+                    registry["urls"].append(url)
+                    print(f"  [registry] New miner registered: {miner_id or '?'} @ {url}")
+                self._send_json(200, {"status": "registered", "miner_id": miner_id, "url": url})
+            except json.JSONDecodeError:
+                self._send_json(400, {"error": "invalid JSON"})
+        else:
+            self._send_json(404, {"error": "not found"})
+
     def log_message(self, format, *args):
         pass
 
@@ -405,9 +494,16 @@ class ValidatorAPIHandler(BaseHTTPRequestHandler):
 # ---------------------------------------------------------------------------
 
 def main():
-    parser = argparse.ArgumentParser(description="Autoresearch validator (Bittensor testnet)")
-    # Bittensor args
-    parser.add_argument("--netuid", type=int, required=True, help="Subnet UID")
+    parser = argparse.ArgumentParser(description="Autoresearch validator")
+    # Mode
+    parser.add_argument("--local", action="store_true",
+                        help="Run in local HTTP mode (no Bittensor, queries miners via HTTP)")
+    parser.add_argument("--miners", type=str, default="",
+                        help="[local mode] Comma-separated miner URLs")
+    parser.add_argument("--port", type=int, default=8092,
+                        help="[local mode] REST API port")
+    # Bittensor args (testnet mode)
+    parser.add_argument("--netuid", type=int, default=None, help="Subnet UID (enables testnet mode)")
     parser.add_argument("--subtensor.network", type=str, default="test", dest="network",
                         help="Subtensor network (default: test)")
     parser.add_argument("--subtensor.chain_endpoint", type=str, default=None, dest="chain_endpoint",
@@ -416,70 +512,115 @@ def main():
                         help="Wallet name")
     parser.add_argument("--wallet.hotkey", type=str, default="default", dest="wallet_hotkey",
                         help="Wallet hotkey")
-    # Validator args
-    parser.add_argument("--api-port", type=int, default=8092, help="REST API port for the UI")
-    parser.add_argument("--interval", type=int, default=60, help="Seconds between query rounds")
+    # Shared args
+    parser.add_argument("--interval", type=int, default=45, help="Seconds between query rounds")
     parser.add_argument("--results-file", type=str, default="results.json", help="Path to results file")
     parser.add_argument("--time-budget", type=int, default=30, help="Time budget sent to miners")
     args = parser.parse_args()
 
-    # --- Wallet ---
-    wallet = bt.wallet(name=args.wallet_name, hotkey=args.wallet_hotkey)
-    bt.logging.info(f"Wallet: {wallet}")
+    # Determine mode: --local flag or no --netuid means local mode
+    local_mode = args.local or args.netuid is None
 
-    # --- Subtensor ---
-    if args.chain_endpoint:
-        subtensor = bt.subtensor(chain_endpoint=args.chain_endpoint)
-    else:
-        subtensor = bt.subtensor(network=args.network)
-    bt.logging.info(f"Subtensor: {subtensor}")
-
-    # --- Verify registration ---
-    metagraph = subtensor.metagraph(args.netuid)
-    if wallet.hotkey.ss58_address not in metagraph.hotkeys:
-        bt.logging.error(
-            f"Hotkey {wallet.hotkey.ss58_address} is NOT registered on netuid {args.netuid}.\n"
-            f"Register with: btcli subnet register --netuid {args.netuid} --subtensor.network {args.network} "
-            f"--wallet.name {args.wallet_name} --wallet.hotkey {args.wallet_hotkey}"
-        )
-        return
-
-    my_uid = metagraph.hotkeys.index(wallet.hotkey.ss58_address)
-    bt.logging.info(f"Registered on netuid {args.netuid} with UID {my_uid}")
-
-    # --- Dendrite ---
-    dendrite = bt.dendrite(wallet=wallet)
-
-    # --- Submission store ---
     store = SubmissionStore(args.results_file)
 
-    # --- REST API server (for the web UI / CLI dashboard) ---
-    api_server = HTTPServer(("0.0.0.0", args.api_port), ValidatorAPIHandler)
-    api_server.store = store
-    api_thread = threading.Thread(target=api_server.serve_forever, daemon=True)
-    api_thread.start()
+    if local_mode:
+        # --- Local HTTP mode ---
+        api_port = args.port
+        miner_urls = [u.strip() for u in args.miners.split(",") if u.strip()]
+        miner_registry = {"urls": miner_urls}
 
-    print(f"\n{'='*60}")
-    print(f"  Autoresearch Validator (Bittensor Testnet)")
-    print(f"{'='*60}")
-    print(f"  Network:     {args.network}")
-    print(f"  Netuid:      {args.netuid}")
-    print(f"  UID:         {my_uid}")
-    print(f"  Wallet:      {args.wallet_name}/{args.wallet_hotkey}")
-    print(f"  Hotkey:      {wallet.hotkey.ss58_address}")
-    print(f"  REST API:    http://localhost:{args.api_port}")
-    print(f"  Interval:    {args.interval}s between rounds")
-    print(f"  Time budget: {args.time_budget}s per miner")
-    print(f"  Results:     {args.results_file}")
-    print(f"  Metagraph:   {metagraph.n.item()} nodes")
-    print(f"{'='*60}")
-    print()
+        api_server = HTTPServer(("0.0.0.0", api_port), ValidatorAPIHandler)
+        api_server.store = store
+        api_server.miner_registry = miner_registry
+        api_thread = threading.Thread(target=api_server.serve_forever, daemon=True)
+        api_thread.start()
 
-    try:
-        validator_loop(store, subtensor, dendrite, wallet, args.netuid, args.interval, args.time_budget)
-    except KeyboardInterrupt:
-        bt.logging.info("Shutting down validator...")
-        api_server.shutdown()
+        print(f"=== Autoresearch Validator (Local Mode) ===")
+        print(f"REST API:    http://localhost:{api_port}")
+        print(f"  GET  /api/all             — full state for UI")
+        print(f"  GET  /api/leaderboard     — miner rankings")
+        print(f"  GET  /api/feed            — recent experiments")
+        print(f"  GET  /api/results         — all results")
+        print(f"  GET  /api/status          — summary stats")
+        print(f"  GET  /api/miner-stats/:id — per-miner stats + TAO earned")
+        print(f"  POST /api/register        — register a new miner")
+        if miner_urls:
+            print(f"Miners:      {', '.join(miner_urls)}")
+        else:
+            print(f"Miners:      (none yet — waiting for miners to register via POST /api/register)")
+        print(f"Interval:    {args.interval}s between rounds")
+        print(f"Results:     {args.results_file}")
+        print()
+
+        for url in miner_urls:
+            try:
+                resp = requests.get(f"{url}/health", timeout=3)
+                info = resp.json()
+                print(f"  ✓ {url} — {info.get('miner_id', '?')} online")
+            except Exception:
+                print(f"  ✗ {url} — offline (will retry)")
+        print()
+
+        try:
+            local_validator_loop(store, miner_registry, args.interval)
+        except KeyboardInterrupt:
+            print("\nShutting down validator...")
+            api_server.shutdown()
+
+    else:
+        # --- Bittensor testnet mode ---
+        import bittensor as bt
+
+        wallet = bt.Wallet(name=args.wallet_name, hotkey=args.wallet_hotkey)
+        bt.logging.info(f"Wallet: {wallet}")
+
+        if args.chain_endpoint:
+            subtensor = bt.Subtensor(chain_endpoint=args.chain_endpoint)
+        else:
+            subtensor = bt.Subtensor(network=args.network)
+        bt.logging.info(f"Subtensor: {subtensor}")
+
+        metagraph = subtensor.metagraph(args.netuid)
+        if wallet.hotkey.ss58_address not in metagraph.hotkeys:
+            bt.logging.error(
+                f"Hotkey {wallet.hotkey.ss58_address} is NOT registered on netuid {args.netuid}.\n"
+                f"Register with: btcli subnet register --netuid {args.netuid} --subtensor.network {args.network} "
+                f"--wallet.name {args.wallet_name} --wallet.hotkey {args.wallet_hotkey}"
+            )
+            return
+
+        my_uid = metagraph.hotkeys.index(wallet.hotkey.ss58_address)
+        bt.logging.info(f"Registered on netuid {args.netuid} with UID {my_uid}")
+
+        dendrite = bt.Dendrite(wallet=wallet)
+
+        api_port = args.port
+        api_server = HTTPServer(("0.0.0.0", api_port), ValidatorAPIHandler)
+        api_server.store = store
+        api_thread = threading.Thread(target=api_server.serve_forever, daemon=True)
+        api_thread.start()
+
+        print(f"\n{'='*60}")
+        print(f"  Autoresearch Validator (Bittensor Testnet)")
+        print(f"{'='*60}")
+        print(f"  Network:     {args.network}")
+        print(f"  Netuid:      {args.netuid}")
+        print(f"  UID:         {my_uid}")
+        print(f"  Wallet:      {args.wallet_name}/{args.wallet_hotkey}")
+        print(f"  Hotkey:      {wallet.hotkey.ss58_address}")
+        print(f"  REST API:    http://localhost:{api_port}")
+        print(f"  Interval:    {args.interval}s between rounds")
+        print(f"  Time budget: {args.time_budget}s per miner")
+        print(f"  Results:     {args.results_file}")
+        print(f"  Metagraph:   {metagraph.n.item()} nodes")
+        print(f"{'='*60}")
+        print()
+
+        try:
+            testnet_validator_loop(store, subtensor, dendrite, wallet, args.netuid, args.interval, args.time_budget)
+        except KeyboardInterrupt:
+            bt.logging.info("Shutting down validator...")
+            api_server.shutdown()
 
 
 if __name__ == "__main__":
