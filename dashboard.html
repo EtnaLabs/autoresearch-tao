@@ -258,6 +258,28 @@
 
   .chart-filter select:focus { border-color: var(--accent); outline: none; }
 
+  .chart-filter { display: flex; align-items: center; gap: 8px; }
+
+  .scale-toggle {
+    display: flex;
+    border: 1px solid var(--card-border);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .scale-btn {
+    font-size: 0.75rem;
+    padding: 4px 8px;
+    background: var(--card);
+    color: var(--muted);
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .scale-btn:hover { color: var(--fg); }
+  .scale-btn.active { background: var(--accent); color: black; }
+
   .chart-wrap {
     flex: 1;
     min-height: 0;
@@ -451,6 +473,11 @@
   <!-- Chart -->
   <div class="chart-area">
     <div class="chart-filter">
+      <div class="scale-toggle">
+        <button class="scale-btn" data-scale="linear" onclick="setScale('linear',this)">Linear</button>
+        <button class="scale-btn" data-scale="log" onclick="setScale('log',this)">Log</button>
+        <button class="scale-btn active" data-scale="focus" onclick="setScale('focus',this)">Focus</button>
+      </div>
       <select id="agent-filter" onchange="filterChart()">
         <option value="all">All agents</option>
       </select>
@@ -496,6 +523,8 @@ let feedItems = [];
 let lbTab = "best";
 let chartFilter = "all";
 let chart = null;
+let yScaleType = "linear";
+let yScaleMode = "focus"; // "linear" | "log" | "focus"
 
 // ─── Mock Data (seeded PRNG) ────────────────────────────────────────
 function mulberry32(seed) {
@@ -554,8 +583,9 @@ function generateMockTimeline() {
       rand(); // consume extra
       results.push({
         agentId: a.id, valBpb: +bpb.toFixed(6),
-        status: isKeep ? "completed" : "discard",
-        description: pickDesc(), timestamp: t
+        status: "completed",
+        description: pickDesc(), timestamp: t,
+        training_seconds: 60
       });
     }
   }
@@ -738,27 +768,117 @@ function filterChart() {
   renderChart();
 }
 
+function setScale(mode, btn) {
+  yScaleMode = mode;
+  yScaleType = mode === "log" ? "logarithmic" : "linear";
+  document.querySelectorAll(".scale-btn").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+  renderChart();
+}
+
+function buildRunningBest(data) {
+  const sorted = [...data].filter(d => d.status === "completed").sort((a,b) => a.timestamp - b.timestamp);
+  if (!sorted.length) return [];
+  const steps = [];
+  let best = Infinity;
+  for (const p of sorted) {
+    if (p.valBpb < best) {
+      if (steps.length) steps.push({x: p.timestamp, y: best});
+      best = p.valBpb;
+      steps.push({x: p.timestamp, y: best});
+    }
+  }
+  const lastTs = sorted[sorted.length - 1].timestamp;
+  if (steps.length && steps[steps.length - 1].x < lastTs) {
+    steps.push({x: lastTs, y: best});
+  }
+  return steps;
+}
+
+function findImprovements(data) {
+  const sorted = [...data].filter(d => d.status === "completed").sort((a,b) => a.timestamp - b.timestamp);
+  const impSet = new Set();
+  let best = Infinity;
+  for (const p of sorted) {
+    if (p.valBpb < best) {
+      best = p.valBpb;
+      impSet.add(p.timestamp + "_" + p.valBpb);
+    }
+  }
+  return impSet;
+}
+
 function renderChart() {
   const data = chartFilter === "all" ? timelineData : timelineData.filter(d => d.agentId === chartFilter);
+  const completed = data.filter(d => d.status === "completed");
 
-  // Group by agent
-  const groups = {};
-  for (const d of data) {
-    if (!groups[d.agentId]) groups[d.agentId] = [];
-    groups[d.agentId].push({x: d.timestamp, y: d.valBpb, ...d});
+  const impSet = findImprovements(completed);
+
+  // Regular points (gray)
+  const regularPts = completed.filter(d => !impSet.has(d.timestamp + "_" + d.valBpb))
+    .map(d => ({x: d.timestamp, y: d.valBpb, ...d}));
+
+  // Improvement points (green)
+  const improvePts = completed.filter(d => impSet.has(d.timestamp + "_" + d.valBpb))
+    .map(d => ({x: d.timestamp, y: d.valBpb, ...d}));
+
+  // Step line
+  const stepLine = buildRunningBest(completed);
+
+  const datasets = [
+    {
+      label: "Running best",
+      type: "line",
+      data: stepLine,
+      borderColor: "#27ae60",
+      borderWidth: 2,
+      pointRadius: 0,
+      fill: false,
+      tension: 0,
+      order: 1,
+    },
+    {
+      label: "Experiments",
+      data: regularPts,
+      backgroundColor: "#66666660",
+      borderColor: "transparent",
+      pointRadius: 3,
+      pointHoverRadius: 5,
+      order: 2,
+    },
+    {
+      label: "New best",
+      data: improvePts,
+      backgroundColor: "#2ecc71",
+      borderColor: "#000000",
+      pointRadius: 5,
+      pointHoverRadius: 7,
+      pointBorderWidth: 0.5,
+      order: 0,
+    },
+  ];
+
+  const scaleLabels = { linear: "linear", log: "log", focus: "focus" };
+  const scaleLabel = `Validation BPB — ${scaleLabels[yScaleMode]} scale (lower is better)`;
+
+  // Focus mode: zoom Y-axis to the improvement region
+  let yMin, yMax;
+  if (yScaleMode === "focus" && completed.length) {
+    const bpbs = completed.map(d => d.valBpb).sort((a,b) => a - b);
+    const bestBpb = bpbs[0];
+    // Use the median as upper baseline instead of max (ignores outliers)
+    const baseline = bpbs[Math.floor(bpbs.length * 0.75)];
+    const range = baseline - bestBpb;
+    yMin = bestBpb - range * 0.15;
+    yMax = baseline + range * 0.15;
   }
-
-  const datasets = Object.entries(groups).map(([id, pts]) => ({
-    label: id,
-    data: pts,
-    backgroundColor: getColor(id) + "C0",
-    borderColor: getColor(id),
-    pointRadius: 3,
-    pointHoverRadius: 5,
-  }));
 
   if (chart) {
     chart.data.datasets = datasets;
+    chart.options.scales.y.type = yScaleType;
+    chart.options.scales.y.title.text = scaleLabel;
+    chart.options.scales.y.min = yMin;
+    chart.options.scales.y.max = yMax;
     chart.update("none");
   } else {
     const ctx = document.getElementById("scatter-chart").getContext("2d");
@@ -777,16 +897,25 @@ function renderChart() {
             borderWidth: 1,
             titleColor: "#e8e8e8",
             bodyColor: "#8a8a8a",
+            filter: (item) => item.dataset.label !== "Running best",
             callbacks: {
-              title: (items) => items[0]?.raw?.agentId || "",
+              title: (items) => {
+                const d = items[0]?.raw;
+                if (!d?.agentId) return "";
+                const isNew = impSet.has(d.timestamp + "_" + d.valBpb);
+                return d.agentId + (isNew ? " — NEW BEST" : "");
+              },
               label: (item) => {
                 const d = item.raw;
                 return [
                   "val_bpb: " + d.valBpb?.toFixed(6),
                   d.description || "",
-                  (d.status || "").toUpperCase(),
                   new Date(d.timestamp).toLocaleString()
                 ];
+              },
+              labelTextColor: (item) => {
+                const d = item.raw;
+                return impSet.has(d.timestamp + "_" + d.valBpb) ? "#2ecc71" : "#8a8a8a";
               }
             }
           }
@@ -807,12 +936,19 @@ function renderChart() {
             border: { color: "#1e1e1e" }
           },
           y: {
-            ticks: { color: "#6b6b6b", font: { size: 11 } },
+            type: yScaleType,
+            min: yMin,
+            max: yMax,
+            ticks: {
+              color: "#6b6b6b",
+              font: { size: 11 },
+              callback: (v) => +v.toFixed(4)
+            },
             grid: { color: "#1e1e1e" },
             border: { color: "#1e1e1e" },
             title: {
               display: true,
-              text: "Validation BPB (lower is better)",
+              text: scaleLabel,
               color: "#6b6b6b",
               font: { size: 11 }
             }
@@ -824,10 +960,11 @@ function renderChart() {
 
   // Legend
   const legendEl = document.getElementById("chart-legend");
-  legendEl.innerHTML = "";
-  for (const id of Object.keys(groups)) {
-    legendEl.innerHTML += `<div class="legend-item"><div class="legend-dot" style="background:${getColor(id)}"></div>${id}</div>`;
-  }
+  legendEl.innerHTML = `
+    <div class="legend-item"><div class="legend-dot" style="background:#666;opacity:0.35"></div>experiments</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#2ecc71"></div>new best</div>
+    <div class="legend-item"><div style="width:16px;height:2px;background:#27ae60;opacity:0.7;border-radius:1px"></div>running best</div>
+  `;
 }
 
 // ─── Copy ───────────────────────────────────────────────────────────

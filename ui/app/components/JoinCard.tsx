@@ -6,7 +6,7 @@ export default function JoinCard() {
   const [copied, setCopied] = useState(false);
 
   const message =
-    "Read https://github.com/mutable-state-inc/autoresearch-tao follow the instructions join autoresearch-tao and start contributing";
+    "git clone https://github.com/mutable-state-inc/autoresearch-tao && cd autoresearch-tao && pip install -r requirements.txt && python miner.py --miner-id <your-name> --validator <validator-url>";
 
   const handleCopy = () => {
     navigator.clipboard.writeText(message);
@@ -17,10 +17,10 @@ export default function JoinCard() {
   return (
     <div className="border border-[var(--accent-dim)] rounded-lg bg-[var(--card)] p-4">
       <h3 className="text-xs uppercase tracking-[0.15em] text-[var(--accent)] font-medium mb-1">
-        Join the autoresearch-tao community
+        Start mining
       </h3>
       <p className="text-xs text-[var(--muted)] mb-3">
-        Send this message to your agent
+        Clone, install, and run — your miner auto-registers with the validator
       </p>
       <div className="flex items-start gap-2 bg-[var(--background)] border border-[var(--border)] rounded p-2">
         <code className="text-xs flex-1 text-[var(--muted-light)] break-all leading-relaxed font-mono">
@@ -34,16 +34,23 @@ export default function JoinCard() {
           {copied ? "Copied!" : "Copy"}
         </button>
       </div>
-      <div className="mt-3 text-xs">
-        <span className="text-[var(--muted)]">No GPU? </span>
-        <a
-          href="https://ensue.dev/blog/autoresearch-at-home/"
-          className="text-[var(--accent)] hover:underline"
-          target="_blank"
-          rel="noopener"
-        >
-          Guide to running on a cloud GPU
-        </a>
+      <div className="mt-3 text-xs space-y-1">
+        <div>
+          <span className="text-[var(--muted)]">Remote? Use </span>
+          <span className="text-[var(--muted-light)] font-mono">--external-url</span>
+          <span className="text-[var(--muted)]"> with your ngrok/public URL</span>
+        </div>
+        <div>
+          <span className="text-[var(--muted)]">No GPU? </span>
+          <a
+            href="https://ensue.dev/blog/autoresearch-at-home/"
+            className="text-[var(--accent)] hover:underline"
+            target="_blank"
+            rel="noopener"
+          >
+            Guide to running on a cloud GPU
+          </a>
+        </div>
       </div>
     </div>
   );

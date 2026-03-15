@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { getAgentColor, type Agent } from "@/lib/use-live-data";
 
-type Tab = "best" | "experiments" | "improvers";
+type Tab = "best" | "tao" | "experiments" | "improvers";
 
 interface Props {
   agents: Agent[];
@@ -14,6 +14,7 @@ export default function Leaderboard({ agents }: Props) {
 
   const sorted = [...agents].sort((a, b) => {
     if (tab === "best") return a.bestBpb - b.bestBpb;
+    if (tab === "tao") return b.taoEarned - a.taoEarned;
     if (tab === "experiments") return b.experiments - a.experiments;
     if (tab === "improvers") return b.improvements - a.improvements;
     return 0;
@@ -21,6 +22,7 @@ export default function Leaderboard({ agents }: Props) {
 
   const tabs: { key: Tab; label: string }[] = [
     { key: "best", label: "Best BPB" },
+    { key: "tao", label: "TAO Earned" },
     { key: "experiments", label: "Most Runs" },
     { key: "improvers", label: "Improvers" },
   ];
@@ -31,6 +33,12 @@ export default function Leaderboard({ agents }: Props) {
         return (
           <span className="text-sm font-mono text-[var(--muted-light)]">
             {agent.bestBpb.toFixed(6)}
+          </span>
+        );
+      case "tao":
+        return (
+          <span className="text-sm font-mono text-[var(--accent)]">
+            {agent.taoEarned.toFixed(4)} TAO
           </span>
         );
       case "experiments":
@@ -67,6 +75,11 @@ export default function Leaderboard({ agents }: Props) {
             </div>
             <div className="flex-1 min-w-0">
               <div className="text-sm font-medium truncate">{agent.name}</div>
+              {tab !== "tao" && agent.taoEarned > 0 && (
+                <div className="text-xs font-mono text-[var(--accent)] opacity-70">
+                  {agent.taoEarned.toFixed(4)} TAO
+                </div>
+              )}
             </div>
             <div className="text-right shrink-0">
               {renderMetric(agent)}

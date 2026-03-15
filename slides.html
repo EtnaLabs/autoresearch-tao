@@ -212,6 +212,40 @@
   #desc-panel::-webkit-scrollbar { width: 4px; }
   #desc-panel::-webkit-scrollbar-track { background: transparent; }
   #desc-panel::-webkit-scrollbar-thumb { background: var(--bt-border); border-radius: 2px; }
+
+  /* Speaker notes at bottom of slide */
+  .speaker-notes {
+    display: none;
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    max-height: 45%;
+    overflow-y: auto;
+    background: rgba(0, 0, 0, 0.92);
+    border-top: 2px solid var(--bt-green-dim);
+    padding: 12px 20px;
+    font-size: 0.42em;
+    line-height: 1.5;
+    color: var(--bt-text-dim);
+    text-align: left;
+    z-index: 50;
+  }
+  .speaker-notes.visible { display: block; }
+  .speaker-notes dt {
+    color: var(--bt-cyan);
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 500;
+    margin-top: 6px;
+    font-size: 0.95em;
+  }
+  .speaker-notes dt:first-child { margin-top: 0; }
+  .speaker-notes dd {
+    margin: 2px 0 0 12px;
+    color: #aaa;
+  }
+  .speaker-notes::-webkit-scrollbar { width: 3px; }
+  .speaker-notes::-webkit-scrollbar-thumb { background: var(--bt-green-dim); border-radius: 2px; }
 </style>
 </head>
 <body>
@@ -224,6 +258,16 @@
   <p>Incentivized autonomous ML research on Bittensor</p>
   <br>
   <p class="small">Bittensor SF Hackathon &bull; March 2026</p>
+  <div class="speaker-notes">
+    <dl>
+      <dt>"Autoresearch TAO"</dt>
+      <dd>The project name. "Autoresearch" = AI agents that autonomously run ML experiments (coined by Karpathy). "TAO" = the native cryptocurrency token of the Bittensor network that miners earn as rewards.</dd>
+      <dt>"Incentivized autonomous ML research on Bittensor"</dt>
+      <dd>The one-line pitch: AI agents independently run machine learning experiments on GPUs worldwide, and earn TAO tokens proportional to how good their results are. Bittensor is the decentralized blockchain network that handles the incentive/payment layer.</dd>
+      <dt>"Bittensor SF Hackathon"</dt>
+      <dd>This was built during the Bittensor San Francisco hackathon in March 2026.</dd>
+    </dl>
+  </div>
 </section>
 
 <!-- THE PROBLEM -->
@@ -235,6 +279,18 @@
   <br>
   <div class="fragment box">
     <p>We need an <span class="highlight">incentive mechanism</span> that rewards agents proportional to their research contributions.</p>
+  </div>
+  <div class="speaker-notes">
+    <dl>
+      <dt>"AI agents can run ML experiments autonomously"</dt>
+      <dd>Coding agents like Claude Code can already modify training scripts, run training, check metrics, and iterate — all without human input. This is a solved problem.</dd>
+      <dt>"why would anyone donate their GPU?"</dt>
+      <dd>GPUs are expensive ($2-3/hr for an H100). Without compensation, only hobbyists or altruists would contribute. This limits the scale of collaborative research.</dd>
+      <dt>"incentive mechanism"</dt>
+      <dd>An economic system where people get paid proportionally to how much they improve the model. This is what Bittensor provides — it's a blockchain designed specifically for rewarding useful computational work.</dd>
+      <dt>"rewards agents proportional to their research contributions"</dt>
+      <dd>Not flat payment — the better your experiment result (lower val_bpb), the more TAO you earn. This creates competitive pressure to actually do good science.</dd>
+    </dl>
   </div>
 </section>
 
@@ -250,6 +306,18 @@
     </div>
     <br>
     <p class="small">"The next step for autoresearch is that it has to be asynchronously massively collaborative for agents (think: SETI@home style)." &mdash; @karpathy, March 2026</p>
+    <div class="speaker-notes">
+      <dl>
+        <dt>"Give an AI agent a small LLM"</dt>
+        <dd>We give the agent a small language model (e.g. ~50M parameters) — small enough to train in minutes, but big enough that improvements are meaningful and transferable to larger models.</dd>
+        <dt>"let it experiment autonomously"</dt>
+        <dd>The AI agent (Claude Code) reads the training script, decides what to change (architecture, learning rate, optimizer, etc.), edits the code, runs training, and evaluates — all on its own, no human in the loop.</dd>
+        <dt>"Modify code → Train → Check val_bpb → Keep or discard → Repeat"</dt>
+        <dd>The core loop. val_bpb = validation bits-per-byte. It measures how many bits the model needs to encode each byte of unseen text. Lower = better predictions. If the change improves val_bpb, keep it. If not, revert and try something else.</dd>
+        <dt>"SETI@home style" — Karpathy quote</dt>
+        <dd>SETI@home was a project where millions of people donated idle CPU time to search for alien signals. Karpathy's vision: do the same thing but for ML research — thousands of agents on different machines, all experimenting in parallel and sharing results.</dd>
+      </dl>
+    </div>
   </section>
 
   <section>
@@ -263,6 +331,22 @@
       <li><strong class="highlight">PUBLISH</strong> &mdash; share results + insights with the swarm</li>
       <li><strong class="highlight">LOOP</strong> &mdash; repeat forever</li>
     </ol>
+    <div class="speaker-notes">
+      <dl>
+        <dt>"THINK — check what the swarm tried, pull global best"</dt>
+        <dd>Before doing anything, the agent reads the shared state: what experiments have already been run, which ones worked, what insights others posted. It pulls the current best training config as a starting point. This avoids wasting time on things already tried.</dd>
+        <dt>"CLAIM — register experiment to avoid duplicates"</dt>
+        <dd>The agent announces "I'm about to try X" in the shared coordination layer. Claims expire after 15 minutes. This prevents two agents from running the same experiment simultaneously.</dd>
+        <dt>"EDIT — modify train.py (arch, optimizer, hyperparams)"</dt>
+        <dd>The agent edits the actual Python training script. This could mean changing the number of layers, switching optimizers, adjusting learning rate schedules, modifying attention patterns — any code-level change to the model or training procedure.</dd>
+        <dt>"TRAIN — run a fixed-budget experiment"</dt>
+        <dd>Each experiment gets a fixed compute budget (5 min on H100, 30s in demo). This ensures fair comparison — every experiment uses the same amount of compute, so improvements come from better ideas, not more GPU time.</dd>
+        <dt>"PUBLISH — share results + insights with the swarm"</dt>
+        <dd>After training, the agent shares: the val_bpb result, the full training code, and qualitative insights ("increasing depth helped because..."). Other agents can learn from this.</dd>
+        <dt>"LOOP — repeat forever"</dt>
+        <dd>The agent goes back to step 1 and keeps going indefinitely. Our overnight run did 83 iterations over ~7 hours.</dd>
+      </dl>
+    </div>
   </section>
 
   <section>
@@ -296,6 +380,28 @@
     </div>
     <br>
     <p class="small">Demo uses <code>train_lite.py</code> &mdash; runs on CPU/MPS, trains on tinyshakespeare</p>
+    <div class="speaker-notes">
+      <dl>
+        <dt>"Params ~50M / ~0.3M"</dt>
+        <dd>Number of trainable weights in the neural network. 50M is small by modern standards (GPT-2 was 1.5B) but large enough for meaningful experiments. 0.3M is tiny — just for demo purposes.</dd>
+        <dt>"Layers / Heads"</dt>
+        <dd>Transformer architecture. Layers = how many transformer blocks stacked. Heads = parallel attention patterns in each layer. More layers = deeper reasoning. More heads = attending to different parts of the input simultaneously.</dd>
+        <dt>"Embed dim"</dt>
+        <dd>The size of each token's internal representation vector. 512 means each token is a 512-dimensional vector inside the model. Bigger = more capacity but more memory/compute.</dd>
+        <dt>"Vocab: 8192 BPE / ~69 chars"</dt>
+        <dd>BPE (Byte Pair Encoding) is a subword tokenizer — splits text into common subword chunks. 8192 tokens in production. Demo uses raw characters (~69 unique chars in Shakespeare).</dd>
+        <dt>"FA3 + sliding"</dt>
+        <dd>Flash Attention 3 — a GPU-optimized attention algorithm that's 2-4x faster than standard attention. "Sliding" = sliding window attention, where tokens only attend to nearby tokens, not the entire sequence. Saves memory.</dd>
+        <dt>"Muon + AdamW"</dt>
+        <dd>Muon is a newer optimizer that uses momentum in a specific way that outperforms AdamW on small models. We use Muon for most parameters and AdamW specifically for embeddings (which Muon doesn't handle well).</dd>
+        <dt>"SDPA"</dt>
+        <dd>Scaled Dot-Product Attention — PyTorch's built-in efficient attention. Not as fast as Flash Attention but works on CPU and Apple MPS (Mac GPUs).</dd>
+        <dt>"Time budget: 5 min / 30s"</dt>
+        <dd>Fixed wall-clock time for each experiment. This is the key constraint — everyone gets the same compute budget, so improvements come from smarter training, not longer training.</dd>
+        <dt>"tinyshakespeare"</dt>
+        <dd>A classic ML benchmark dataset — ~1MB of Shakespeare text. Small enough for quick experiments, complex enough to be non-trivial.</dd>
+      </dl>
+    </div>
   </section>
 </section>
 
@@ -326,6 +432,20 @@
     </div>
     <br>
     <p class="small">~2.1% improvement &mdash; fully autonomous, zero human intervention</p>
+    <div class="speaker-notes">
+      <dl>
+        <dt>"83 experiments run"</dt>
+        <dd>Claude Code ran 83 separate training runs overnight, each taking ~5 minutes of GPU time plus some time for the agent to think about what to try next.</dd>
+        <dt>"15 kept improvements"</dt>
+        <dd>Out of 83 attempts, 15 produced a model that was strictly better than the previous best. The other 68 were discarded — the agent tried something, it didn't help, so it reverted. ~18% success rate is typical for ML experimentation.</dd>
+        <dt>"0.998 baseline val_bpb"</dt>
+        <dd>The starting point. val_bpb = validation bits-per-byte. It measures how many bits the model needs on average to encode each byte of text it hasn't seen during training. 0.998 means the model needs just under 1 bit per byte — already decent compression.</dd>
+        <dt>"0.977 best val_bpb"</dt>
+        <dd>The final result after all improvements. 0.977 bits per byte. Each byte of text now takes 2.1% fewer bits to encode. In language modeling, this is a meaningful improvement — it compounds across every byte.</dd>
+        <dt>"fully autonomous, zero human intervention"</dt>
+        <dd>We started the agent, went to sleep, and woke up to these results. No human suggested what to try, reviewed intermediate results, or made any decisions during the run.</dd>
+      </dl>
+    </div>
   </section>
 
   <section>
@@ -343,6 +463,24 @@
     </table>
     <br>
     <p class="small">Each experiment: 5 min train + think + publish. Agent ran ~7 hours total.</p>
+    <div class="speaker-notes">
+      <dl>
+        <dt>"Halve batch 524K→262K (more steps)"</dt>
+        <dd>Smaller batch size = each gradient update sees fewer tokens, but you get more updates in the same time budget. More updates = more opportunities for the model to learn. This is often the single biggest lever in time-constrained training.</dd>
+        <dt>"Warmdown 0.5→0.7 (more cooldown)"</dt>
+        <dd>Warmdown = the fraction of training spent reducing the learning rate toward zero. Going from 0.5 to 0.7 means 70% of training is spent cooling down. This lets the model settle into a better optimum.</dd>
+        <dt>"Add 5% warmup"</dt>
+        <dd>Warmup = gradually increasing the learning rate at the start instead of jumping to full speed. Prevents early instability when the model's weights are still random.</dd>
+        <dt>"Depth 9, aspect_ratio 57"</dt>
+        <dd>Making the model deeper (9 layers instead of 8) with a different width-to-depth ratio. Deeper models can learn more complex patterns but need careful tuning to train stably.</dd>
+        <dt>"x0_lambda init 0.1→0.05"</dt>
+        <dd>A parameter controlling the initial scale of residual connections. Smaller = the residual branches contribute less at the start, which can help training stability in deeper models.</dd>
+        <dt>"Window patterns, embedding LR, RoPE base freq"</dt>
+        <dd>More nuanced changes: sliding window attention sizes, separate learning rate for embedding layers (which often benefit from a different rate), and RoPE (Rotary Position Embedding) base frequency which controls how the model encodes token positions.</dd>
+        <dt>"Random seed 42→137"</dt>
+        <dd>Changing the random seed changes weight initialization and data shuffling order. The fact that this helped (0.977 vs previous best) shows the loss landscape has multiple basins and initialization matters even at this scale.</dd>
+      </dl>
+    </div>
   </section>
 </section>
 
@@ -362,6 +500,24 @@ insights/&lt;agent&gt;--&lt;slug&gt;  collective learnings
 best/train_py              the global best configuration
 best/tier/&lt;tier&gt;/          per-hardware-tier bests</code></pre>
     </div>
+    <div class="speaker-notes">
+      <dl>
+        <dt>"SETI@home for ML research"</dt>
+        <dd>SETI@home let millions donate idle CPU cycles to search for alien signals. We do the same but for ML — people donate GPU cycles to run AI experiments. The difference: our contributors actually earn money (TAO).</dd>
+        <dt>"Multiple AI agents on different GPUs, collaborating via Ensue"</dt>
+        <dd>Ensue is a real-time state sync platform (like a shared document but for structured data). Each agent reads/writes to a shared namespace so they can see what others are doing, what's been tried, and what worked.</dd>
+        <dt>"claims/&lt;agent&gt;--&lt;slug&gt;"</dt>
+        <dd>When an agent starts an experiment, it writes a claim: "I'm working on X." Claims expire after 15 minutes. If an agent crashes, its claim auto-expires and someone else can try that idea.</dd>
+        <dt>"results/&lt;agent&gt;--&lt;slug&gt;"</dt>
+        <dd>Completed experiments are stored here with the full val_bpb score, memory usage, and the actual train.py code that produced the result. Other agents can read this to learn what worked.</dd>
+        <dt>"hypotheses/&lt;agent&gt;--&lt;slug&gt;"</dt>
+        <dd>Ideas for experiments that an agent thought of but didn't have time to run. Other agents can pick these up — it's like a shared "to try" list.</dd>
+        <dt>"insights/&lt;agent&gt;--&lt;slug&gt;"</dt>
+        <dd>Qualitative learnings: "larger batch size hurt because we get fewer steps in the time budget" or "the model benefits from deeper architectures." This is what makes the swarm collectively intelligent — they share reasoning, not just numbers.</dd>
+        <dt>"best/train_py" and "best/tier/&lt;tier&gt;/"</dt>
+        <dd>The globally best training script, and per-hardware-tier bests. When an agent starts a new experiment, it pulls the best config for its tier as a baseline, then tries to improve on it.</dd>
+      </dl>
+    </div>
   </section>
 
   <section>
@@ -378,6 +534,22 @@ best/tier/&lt;tier&gt;/          per-hardware-tier bests</code></pre>
     </table>
     <br>
     <p class="small">Agents pull configs from their own tier so they don't OOM</p>
+    <div class="speaker-notes">
+      <dl>
+        <dt>"Fair comparison across hardware"</dt>
+        <dd>A model config optimized for 80GB H100 would crash on a 12GB RTX 4070. We can't compare results across different hardware classes, so we tier them.</dd>
+        <dt>"small ≤16 GB"</dt>
+        <dd>Consumer-grade GPUs. Can train models up to ~10-15M parameters with typical batch sizes. Examples: RTX 4070, RTX 3060, RTX 4060.</dd>
+        <dt>"medium ≤24 GB"</dt>
+        <dd>High-end consumer GPUs. Can handle ~30-50M parameter models. Examples: RTX 3090, RTX 4090 — the "prosumer" tier.</dd>
+        <dt>"large ≤48 GB"</dt>
+        <dd>Professional/workstation GPUs. Can handle larger models and batch sizes. Examples: A6000, L40 — typically found in research labs.</dd>
+        <dt>"xl >48 GB"</dt>
+        <dd>Data center GPUs with massive VRAM. Examples: A100 (40/80GB), H100 (80GB), H200 (141GB). These are what cloud providers offer.</dd>
+        <dt>"Agents pull configs from their own tier so they don't OOM"</dt>
+        <dd>OOM = Out Of Memory — the GPU runs out of VRAM and the training crashes. By pulling the best config for your specific tier, you get a config that's guaranteed to fit in your GPU's memory.</dd>
+      </dl>
+    </div>
   </section>
 
   <section>
@@ -398,6 +570,22 @@ coord.publish_hypothesis("try even wider", ...)</code></pre>
     </div>
     <br>
     <p class="small">Every agent shares reasoning, not just results &mdash; the swarm gets smarter together</p>
+    <div class="speaker-notes">
+      <dl>
+        <dt>"coord.analyze_swarm()"</dt>
+        <dd>Returns a full snapshot of the swarm: which agents are active, what experiments are in progress, what's been completed, what's the best val_bpb per tier. The agent reads this before deciding what to try.</dd>
+        <dt>"coord.get_swarm_insights('optimizer')"</dt>
+        <dd>Retrieves collective learnings filtered by topic. E.g., asking about "optimizer" might return: "Muon outperforms AdamW on this model size" and "Learning rate 0.01 is too high, 0.003 works better."</dd>
+        <dt>"coord.get_unclaimed_hypotheses()"</dt>
+        <dd>Returns experiment ideas posted by other agents that nobody has claimed yet. This is like a shared to-do list — agents generate more ideas than they can test, so they share the extras.</dd>
+        <dt>"coord.claim_experiment('try wider model')"</dt>
+        <dd>Reserves a 15-minute slot. Other agents will see this claim and avoid duplicating the work. If the agent crashes, the claim expires and someone else can pick it up.</dd>
+        <dt>"coord.publish_result(...)"</dt>
+        <dd>Shares the experiment outcome: val_bpb, memory used, the full training code. This is the quantitative result.</dd>
+        <dt>"coord.post_insight(...) / coord.publish_hypothesis(...)"</dt>
+        <dd>Qualitative sharing: why something worked, and what to try next. This is what makes the swarm smarter over time — later agents benefit from earlier agents' reasoning, not just their numbers.</dd>
+      </dl>
+    </div>
   </section>
 </section>
 
@@ -421,6 +609,24 @@ coord.publish_hypothesis("try even wider", ...)</code></pre>
   </div>
   <br>
   <p>Turn the collaborative research swarm into a <span class="highlight">Bittensor subnet</span>.</p>
+  <div class="speaker-notes">
+    <dl>
+      <dt>"Before (Altruistic) — Agents donate GPU time"</dt>
+      <dd>In Autoresearch@Home without Bittensor, people run agents out of goodwill. No compensation. This is like early open-source: works for enthusiasts, doesn't scale.</dd>
+      <dt>"No incentive to participate"</dt>
+      <dd>GPU time costs real money. An H100 is $2-3/hour on cloud. Without payment, only researchers with grant money or hobbyists would contribute.</dd>
+      <dt>"Trust-based collaboration"</dt>
+      <dd>Anyone could submit fake results or copy others' work. There's no enforcement mechanism — you just trust that participants are honest.</dd>
+      <dt>"After (Incentivized) — Agents earn TAO"</dt>
+      <dd>TAO is Bittensor's native cryptocurrency. It has real monetary value. Miners earn TAO proportional to the quality of their work — the better your experiments, the more you earn.</dd>
+      <dt>"Better results = more rewards"</dt>
+      <dd>The scoring formula (best/yours)² means the best miner earns the most. A miner 5% worse than the best earns significantly less. This creates competitive pressure to innovate.</dd>
+      <dt>"Anti-cheat built in"</dt>
+      <dd>Validators enforce rules: dedup (can't copy someone's code), staleness (must submit fresh results), sanity bounds (can't fake impossibly good metrics). Cheating is economically unprofitable.</dd>
+      <dt>"Bittensor subnet"</dt>
+      <dd>Bittensor is a network of ~50+ subnets, each doing different work (text gen, image gen, storage, etc.). Each subnet has miners (do work) and validators (score work). The blockchain distributes TAO rewards. Our subnet's "work" is ML research.</dd>
+    </dl>
+  </div>
 </section>
 
 <!-- ARCHITECTURE -->
@@ -452,6 +658,24 @@ coord.publish_hypothesis("try even wider", ...)</code></pre>
 │     Yuma Consensus → TAO rewards ∝ weights                │
 └───────────────────────────────────────────────────────────┘</code></pre>
     </div>
+    <div class="speaker-notes">
+      <dl>
+        <dt>"MINER (HTTP :8091)"</dt>
+        <dd>Each miner is a Python HTTP server running on port 8091. Anyone with a GPU can run one. In production, this would be a Bittensor axon (their built-in server framework).</dd>
+        <dt>"each GPU participant"</dt>
+        <dd>One miner per GPU. If you have 4 GPUs, you run 4 miners on different ports. Each one independently runs experiments.</dd>
+        <dt>"Axon — /run endpoint"</dt>
+        <dd>"Axon" is Bittensor's name for a miner's server endpoint. When the validator sends POST /run, the miner spawns train_lite.py, waits for it to finish, and returns the result.</dd>
+        <dt>"VALIDATOR (HTTP :8092) — single instance"</dt>
+        <dd>There's one validator that orchestrates everything. It queries all miners, scores their results, and sets weights on the blockchain. In production Bittensor, there can be multiple validators.</dd>
+        <dt>"Validator loop — Queries miners every N seconds"</dt>
+        <dd>Every 45 seconds, the validator sends POST /run to every registered miner. This triggers a new experiment round.</dd>
+        <dt>"Scoring — Anti-cheat checks — set_weights() (mock)"</dt>
+        <dd>The validator checks results for cheating, scores them using (best/theirs)², and calls set_weights(). "(mock)" means in our demo we log what would be sent to the blockchain instead of actually sending it.</dd>
+        <dt>"SUBTENSOR — Yuma Consensus → TAO rewards ∝ weights"</dt>
+        <dd>Subtensor is Bittensor's blockchain. Yuma Consensus is their consensus algorithm that aggregates validator weights and distributes TAO. "∝ weights" means rewards are proportional to your weight — higher weight = more TAO.</dd>
+      </dl>
+    </div>
   </section>
 
   <section>
@@ -472,6 +696,24 @@ coord.publish_hypothesis("try even wider", ...)</code></pre>
         &darr;<br>
         <span class="metric" style="font-size:1.2em;">TAO Rewards &prop; weight</span>
       </p>
+    </div>
+    <div class="speaker-notes">
+      <dl>
+        <dt>"Validator Loop (every 45s)"</dt>
+        <dd>The validator wakes up every 45 seconds and triggers a new round of experiments. 45s is long enough for a 30s demo training run plus overhead.</dd>
+        <dt>"POST /run to each miner"</dt>
+        <dd>HTTP POST request telling the miner "run an experiment now." The miner is a web server — the validator is the client.</dd>
+        <dt>"Miner runs train_lite.py (~30s)"</dt>
+        <dd>The miner spawns train_lite.py as a subprocess with a time budget. The script trains a small GPT model, prints metrics to stdout, and exits.</dd>
+        <dt>"returns ExperimentResult as JSON"</dt>
+        <dd>The miner parses the training output, packages it into an ExperimentResult dataclass, serializes to JSON, and returns it as the HTTP response.</dd>
+        <dt>"SubmissionStore — anti-cheat + dedup + scoring"</dt>
+        <dd>A class inside the validator that stores all submissions and enforces rules: no duplicate code hashes, no stale results, no impossible metrics, only completed experiments score.</dd>
+        <dt>"Weights: score = (best / miner_bpb)²"</dt>
+        <dd>The scoring formula. If the best val_bpb is 2.80 and yours is 2.85, your score = (2.80/2.85)² = 0.965. The squaring amplifies differences. Scores are normalized so all weights sum to 1.0.</dd>
+        <dt>"TAO Rewards ∝ weight"</dt>
+        <dd>The Bittensor blockchain distributes TAO tokens every epoch (~12 min). Your share of the TAO is proportional to your weight. Weight 0.5 out of 1.0 = you get 50% of the subnet's TAO emissions.</dd>
+      </dl>
     </div>
   </section>
 </section>
@@ -498,6 +740,26 @@ class ExperimentResult:
     score: float = 0.0            # set by validator</code></pre>
   <br>
   <p class="small">Demo: plain dataclass over HTTP/JSON. Production: <code>bt.Synapse</code> over dendrite/axon.</p>
+  <div class="speaker-notes">
+    <dl>
+      <dt>"@dataclass class ExperimentResult"</dt>
+      <dd>A Python dataclass — a clean way to define a structured data object with typed fields. This is the contract between miner and validator: every experiment returns this exact shape of data.</dd>
+      <dt>"agent_id: str"</dt>
+      <dd>Unique identifier for the miner (e.g. "raven", "nova"). Used for the leaderboard and to track who submitted what.</dd>
+      <dt>"val_bpb: float — the key metric"</dt>
+      <dd>Validation bits-per-byte. THE metric that determines your score and TAO earnings. It measures the model's prediction quality on text it wasn't trained on. Lower = better. Typical values: 2.8 for demo, 0.98 for H100 production.</dd>
+      <dt>"memory_gb: float"</dt>
+      <dd>Peak GPU memory used during training. Tracked for VRAM tier fairness and to detect anomalies.</dd>
+      <dt>"training_seconds / total_tokens_M / num_steps / num_params_M"</dt>
+      <dd>Metadata about the training run: how long it took, how many tokens were processed (in millions), how many gradient steps, model size. Used for analytics and anomaly detection.</dd>
+      <dt>"train_py_hash: str — SHA256 for dedup"</dt>
+      <dd>The SHA256 hash of the training script's source code. If two miners submit the same hash, only the first gets credit. This prevents copying someone else's successful code.</dd>
+      <dt>"accepted: bool / score: float — set by validator"</dt>
+      <dd>The miner doesn't set these — the validator fills them in after anti-cheat checks and scoring. This ensures miners can't self-score.</dd>
+      <dt>"bt.Synapse over dendrite/axon"</dt>
+      <dd>In production Bittensor: bt.Synapse is their typed message class (like our dataclass but with built-in serialization). Dendrite = client (validator), Axon = server (miner). Handles auth, routing, and encryption natively.</dd>
+    </dl>
+  </div>
 </section>
 
 <!-- MINER -->
@@ -511,6 +773,20 @@ class ExperimentResult:
       <p>Parses output, returns <span class="highlight">ExperimentResult</span> as JSON.</p>
       <br>
       <p class="small">One experiment at a time (lock-guarded). GET /status shows idle/running.</p>
+    </div>
+    <div class="speaker-notes">
+      <dl>
+        <dt>"HTTP server that runs experiments on demand"</dt>
+        <dd>The miner is literally a Python web server (http.server). It sits idle waiting for requests, just like any web server — but instead of serving web pages, it runs ML experiments.</dd>
+        <dt>"Validator sends POST /run → miner runs train_lite.py"</dt>
+        <dd>POST /run is the trigger. The validator acts as a client sending HTTP requests. The miner receives the request, spawns the training script as a subprocess, waits for it to finish, and returns the result as JSON.</dd>
+        <dt>"Parses output, returns ExperimentResult as JSON"</dt>
+        <dd>train_lite.py prints metrics to stdout (like "val_bpb=2.834"). The miner parses these strings, constructs an ExperimentResult object, converts it to JSON, and sends it back in the HTTP response body.</dd>
+        <dt>"One experiment at a time (lock-guarded)"</dt>
+        <dd>A threading.Lock ensures only one experiment runs at once. If the validator sends a second request while one is running, it waits. This prevents GPU memory conflicts.</dd>
+        <dt>"GET /status shows idle/running"</dt>
+        <dd>A monitoring endpoint. The UI and CLI dashboard can poll this to show whether the miner is currently training or waiting for the next request.</dd>
+      </dl>
     </div>
   </section>
 
@@ -536,6 +812,20 @@ class ExperimentResult:
         status="completed",
         ...
     )</code></pre>
+    <div class="speaker-notes">
+      <dl>
+        <dt>"env['AUTORESEARCH_TIME_BUDGET'] = str(self.server.time_budget)"</dt>
+        <dd>The time budget is passed as an environment variable to the training script. train_lite.py reads this and knows how long it's allowed to train (30s in demo). This keeps the experiment standardized.</dd>
+        <dt>"subprocess.run([sys.executable, 'train_lite.py'], ...)"</dt>
+        <dd>subprocess.run spawns a completely separate Python process. capture_output=True captures stdout/stderr. text=True returns strings instead of bytes. This isolates the training from the miner server — if training crashes, the miner keeps running.</dd>
+        <dt>"timeout=self.server.time_budget + 60"</dt>
+        <dd>The +60 second buffer gives the training script time to finish cleanup after its internal budget expires. Without this, the subprocess might get killed before it can print final metrics.</dd>
+        <dt>"metrics = parse_train_output(proc.stdout)"</dt>
+        <dd>Parses the raw text output of train_lite.py looking for key-value pairs like "val_bpb=2.834", "peak_memory_gb=1.2", etc. Extracts them into a dictionary.</dd>
+        <dt>"train_py_hash=hash_file('train_lite.py')"</dt>
+        <dd>Computes SHA256 of the training script's source code. This is the dedup key — if another miner submits a result from identical code, only the first submission counts.</dd>
+      </dl>
+    </div>
   </section>
 </section>
 
@@ -562,6 +852,28 @@ class ExperimentResult:
         <p><code>/api/status</code></p>
       </div>
     </div>
+    <div class="speaker-notes">
+      <dl>
+        <dt>"Two responsibilities"</dt>
+        <dd>The validator does two things: (1) actively queries miners and scores results, and (2) passively serves data to the UI via a REST API. Both run in the same process.</dd>
+        <dt>"Query Loop — POST /run to each miner"</dt>
+        <dd>Every 45 seconds, the validator loops through all registered miner URLs and sends POST /run to each one. This triggers experiments.</dd>
+        <dt>"Collect ExperimentResults"</dt>
+        <dd>Gather the JSON responses from each miner. Failed requests (timeouts, network errors) are logged and the miner is skipped for that round.</dd>
+        <dt>"Anti-cheat + store"</dt>
+        <dd>The SubmissionStore validates each result (dedup, staleness, sanity, status) and stores accepted ones. Rejected results are still logged in the feed for transparency.</dd>
+        <dt>"Print leaderboard + weights"</dt>
+        <dd>After each round, the validator prints a ranked leaderboard to the terminal and computes the weights that would be sent to the blockchain.</dd>
+        <dt>"/api/leaderboard"</dt>
+        <dd>Returns JSON: ranked list of miners with their best val_bpb, score, weight, experiment count. The web UI and CLI dashboard poll this.</dd>
+        <dt>"/api/feed"</dt>
+        <dd>Chronological stream of ALL experiment results — both accepted and rejected. Shows the full history of the subnet.</dd>
+        <dt>"/api/results"</dt>
+        <dd>Raw result data optimized for charting — val_bpb over time for each miner. The UI uses this for the line chart.</dd>
+        <dt>"/api/status"</dt>
+        <dd>Subnet health: number of active miners, total experiments, best val_bpb, uptime. Quick health check.</dd>
+      </dl>
+    </div>
   </section>
 
   <section>
@@ -574,6 +886,18 @@ class ExperimentResult:
       <p>Other miners: <code>score = (best / miner_bpb)&sup2;</code></p>
       <br>
       <p>Scores normalized to weights that sum to 1.0</p>
+    </div>
+    <div class="speaker-notes">
+      <dl>
+        <dt>"Lower val_bpb = better model = higher score"</dt>
+        <dd>val_bpb (bits-per-byte) is an information-theoretic metric. A perfect model that knows exactly what comes next would need 0 bits. A random guesser over 256 bytes would need 8 bits. Lower = more accurate predictions = better language model.</dd>
+        <dt>"Best miner: score = 1.0"</dt>
+        <dd>The miner with the lowest (best) val_bpb gets the maximum score of 1.0. This is the reference point for everyone else.</dd>
+        <dt>"Other miners: score = (best / miner_bpb)²"</dt>
+        <dd>Example: if best = 2.80 and yours = 2.85, your score = (2.80/2.85)² = 0.965. The squaring is deliberate — it amplifies small differences. A 2% worse val_bpb gives ~4% lower score. This creates strong incentive to push for every improvement.</dd>
+        <dt>"Scores normalized to weights that sum to 1.0"</dt>
+        <dd>If there are 3 miners with scores [1.0, 0.96, 0.90], total = 2.86, so weights = [0.350, 0.336, 0.315]. These weights go directly to the blockchain. TAO distribution follows these weights exactly.</dd>
+      </dl>
     </div>
   </section>
 
@@ -589,6 +913,18 @@ class ExperimentResult:
     </table>
     <br>
     <p class="small">Prevents copying others' work, submitting stale results, or gaming metrics</p>
+    <div class="speaker-notes">
+      <dl>
+        <dt>"Dedup — train_py_hash — first submitter wins"</dt>
+        <dd>Every miner's training script is SHA256-hashed. If miner B copies miner A's code and submits the same hash, miner B's submission is rejected. Only the first miner to submit a given hash gets credit. This prevents free-riding.</dd>
+        <dt>"Staleness — Results older than 1 hour are ignored"</dt>
+        <dd>The timestamp in ExperimentResult must be within the last hour. This prevents miners from saving a good result and replaying it forever without doing new work.</dd>
+        <dt>"Sanity bound — val_bpb ≥ 0.5"</dt>
+        <dd>A model training for only 5 minutes on a small dataset physically cannot achieve val_bpb below ~0.5 bits per byte. Any submission claiming lower is fabricated. This catches miners who hardcode fake metrics.</dd>
+        <dt>"Status check — Only 'completed' results score"</dt>
+        <dd>If training crashed, timed out, or errored, the status field will be 'failed' instead of 'completed'. Failed experiments get zero score. This prevents miners from submitting partial/garbage results.</dd>
+      </dl>
+    </div>
   </section>
 </section>
 
@@ -608,6 +944,24 @@ class ExperimentResult:
   </table>
   <br>
   <p class="small">Full demo stack: miner + validator + training + UI</p>
+  <div class="speaker-notes">
+    <dl>
+      <dt>"protocol.py (50 lines)"</dt>
+      <dd>The ExperimentResult dataclass — the data contract between miner and validator. Uses Python's built-in dataclasses module and hashlib for SHA256. Tiny but critical — it defines the API.</dd>
+      <dt>"miner.py (217 lines)"</dt>
+      <dd>HTTP server using Python's http.server (stdlib, no dependencies). Spawns train_lite.py via subprocess. Thread-locked so only one experiment runs at a time. Serves /run, /health, /status.</dd>
+      <dt>"validator.py (372 lines)"</dt>
+      <dd>The brain: query loop (every 45s), SubmissionStore (anti-cheat + scoring), leaderboard, weight computation, and a REST API for the UI. Also http.server, no external dependencies.</dd>
+      <dt>"train_lite.py (304 lines)"</dt>
+      <dd>A complete GPT training script in PyTorch. Defines the transformer model, SDPA attention, AdamW optimizer, cosine LR schedule with warmup/warmdown. Trains on tinyshakespeare. Prints metrics to stdout.</dd>
+      <dt>"prepare_lite.py (258 lines)"</dt>
+      <dd>Data preparation: downloads tinyshakespeare (~1MB), builds a character-level tokenizer (~69 unique chars), splits 90/10 into train/val, serializes to binary .bin files for fast loading during training.</dd>
+      <dt>"coordinator.py (1,354 lines)"</dt>
+      <dd>The Ensue-based swarm coordination layer for production multi-agent mode. Handles claims, results, hypotheses, insights, VRAM tiers, and the shared lab notebook. Uses the Ensue SDK for real-time state sync.</dd>
+      <dt>"ui/ — Next.js dashboard"</dt>
+      <dd>Web dashboard built with Next.js + React + Tailwind CSS. Polls the validator's REST API. Shows: live leaderboard, experiment feed, val_bpb chart over time, subnet status. Runs on localhost:3000.</dd>
+    </dl>
+  </div>
 </section>
 
 <!-- DEMO -->
@@ -629,6 +983,20 @@ python validator.py --miners http://localhost:8091,http://localhost:8093
 
 # Terminal 5: Start UI dashboard
 cd ui && npm run dev</code></pre>
+    <div class="speaker-notes">
+      <dl>
+        <dt>"python prepare_lite.py"</dt>
+        <dd>One-time setup. Downloads the tinyshakespeare dataset (~1MB of Shakespeare), tokenizes it into character-level tokens, splits into 90% train / 10% validation, saves as binary files (train.bin, val.bin). Takes a few seconds.</dd>
+        <dt>"python miner.py --port 8091 --miner-id raven"</dt>
+        <dd>Starts a miner named "raven" on port 8091. It sits idle as an HTTP server, waiting for the validator to POST /run. --miner-id is just a label for the leaderboard.</dd>
+        <dt>"python miner.py --port 8093 --miner-id nova"</dt>
+        <dd>A second miner on a different port with a different name. In a real network, these would be on different machines with different GPUs. For demo, they both run on the same laptop.</dd>
+        <dt>"python validator.py --miners http://localhost:8091,http://localhost:8093"</dt>
+        <dd>Starts the validator, telling it where to find the miners. It immediately begins querying them every 45 seconds. The comma-separated list is the miner registry.</dd>
+        <dt>"cd ui && npm run dev"</dt>
+        <dd>Starts the Next.js web dashboard in development mode on localhost:3000. It auto-polls the validator's /api/* endpoints and renders the leaderboard, feed, and charts in real-time.</dd>
+      </dl>
+    </div>
   </section>
 
   <section>
@@ -649,6 +1017,24 @@ cd ui && npm run dev</code></pre>
   raven   weight=0.5030  →  TAO reward ∝ 0.5030
   nova    weight=0.4970  →  TAO reward ∝ 0.4970</code></pre>
     </div>
+    <div class="speaker-notes">
+      <dl>
+        <dt>"=== ROUND 1 ==="</dt>
+        <dd>Each round = one cycle of the validator querying all miners. Rounds happen every 45 seconds.</dd>
+        <dt>"[raven] requesting experiment..."</dt>
+        <dd>The validator sends POST /run to miner "raven". Raven spawns train_lite.py and starts training the model.</dd>
+        <dt>"[raven] val_bpb=2.8341 — ACCEPTED (score=1.000)"</dt>
+        <dd>Raven finished training: its model achieved val_bpb = 2.8341 bits per byte on the validation set. Since this is the best score, raven gets score 1.0. "ACCEPTED" means it passed all anti-cheat checks.</dd>
+        <dt>"[nova] val_bpb=2.8512 — ACCEPTED (score=0.988)"</dt>
+        <dd>Nova got a slightly worse val_bpb (2.8512). Its score = (2.8341/2.8512)² = 0.988. Still close — the difference is only ~0.6% in val_bpb.</dd>
+        <dt>"--- Leaderboard ---"</dt>
+        <dd>After each round, the validator prints a ranked list of all miners. #1 is the best. Shows val_bpb, score, and total experiments completed.</dd>
+        <dt>"--- Setting Weights (mock) ---"</dt>
+        <dd>"mock" = we're simulating the blockchain call. In production, this would actually call set_weights() on the Bittensor subtensor blockchain.</dd>
+        <dt>"raven weight=0.5030 → TAO reward ∝ 0.5030"</dt>
+        <dd>Raven's weight: its score (1.0) divided by the sum of all scores. This means raven would earn ~50.3% of the subnet's TAO emissions. The weights are nearly equal because the miners' results are very close.</dd>
+      </dl>
+    </div>
   </section>
 </section>
 
@@ -667,6 +1053,18 @@ cd ui && npm run dev</code></pre>
   </div>
   <br>
   <p class="fragment"><span class="highlight">The first subnet where miners do science.</span></p>
+  <div class="speaker-notes">
+    <dl>
+      <dt>"For GPU owners: Earn TAO by contributing to real ML research"</dt>
+      <dd>Instead of mining Bitcoin (solving useless hash puzzles) or sitting idle, your GPU runs real ML experiments. You earn TAO — a cryptocurrency with real value — proportional to how good your results are.</dd>
+      <dt>"For researchers: Massively parallel experimentation, incentive-aligned"</dt>
+      <dd>Instead of running experiments one at a time on your own machine, you get a global network of GPUs all trying to improve the same model. And because they're paid by results, participants are motivated to actually contribute good work.</dd>
+      <dt>"For Bittensor: A subnet where the 'work' is actual scientific discovery"</dt>
+      <dd>Most Bittensor subnets do useful but routine work (text generation, image generation, data storage). This subnet is different — the work product is novel discoveries about ML training. Agents find new architectures, optimizer settings, and hyperparameters.</dd>
+      <dt>"The first subnet where miners do science"</dt>
+      <dd>The punchline. Bittensor has ~50+ subnets, but none where the actual task is scientific research and discovery. This is the first.</dd>
+    </dl>
+  </div>
 </section>
 
 <!-- THE BIG PICTURE -->
@@ -686,6 +1084,18 @@ cd ui && npm run dev</code></pre>
       <span class="small">Agents earn TAO proportional to val_bpb improvements</span>
     </p>
   </div>
+  <div class="speaker-notes">
+    <dl>
+      <dt>"Karpathy's Autoresearch — Single agent, single GPU"</dt>
+      <dd>Stage 1: Andrej Karpathy demonstrated that a single AI agent on one GPU can autonomously improve a model by modifying code, training, evaluating, and iterating. Powerful proof of concept, but limited to one machine.</dd>
+      <dt>"Autoresearch@Home — Multiple agents via Ensue (altruistic)"</dt>
+      <dd>Stage 2: We extended this to multiple agents on different GPUs, sharing their work via the Ensue coordination platform. The swarm collaborates and gets smarter together. But it's altruistic — no one gets paid, so it doesn't scale beyond enthusiasts.</dd>
+      <dt>"Autoresearch TAO — Incentivized subnet on Bittensor"</dt>
+      <dd>Stage 3 (what we built): same multi-agent research swarm, but wrapped as a Bittensor subnet. Now agents earn TAO tokens. The economic incentive transforms this from a hobby into a self-sustaining network where anyone with a GPU can participate and get paid.</dd>
+      <dt>"Agents earn TAO proportional to val_bpb improvements"</dt>
+      <dd>The key economic design: your reward is directly proportional to how much you improve the model. score = (best/yours)², normalized to weights, TAO distributed per weight. Better science = more money.</dd>
+    </dl>
+  </div>
 </section>
 
 <!-- THANK YOU -->
@@ -696,12 +1106,20 @@ cd ui && npm run dev</code></pre>
   <p class="small">ensue-network.ai/join &rarr; /autoresearch</p>
   <br>
   <p class="small">Bittensor SF Hackathon &bull; March 2026</p>
+  <div class="speaker-notes">
+    <dl>
+      <dt>"Join the swarm"</dt>
+      <dd>Invitation to participate as a miner — run the agent on your GPU, earn TAO.</dd>
+      <dt>"ensue-network.ai/join → /autoresearch"</dt>
+      <dd>Ensue is the real-time coordination platform we use for the multi-agent swarm. The /autoresearch namespace is where all agents share their claims, results, hypotheses, and insights.</dd>
+    </dl>
+  </div>
 </section>
 
 </div>
 </div>
 
-<button id="desc-toggle" title="Show/hide slide descriptions">H</button>
+<button id="desc-toggle" title="Show/hide slide descriptions">?</button>
 <div id="desc-panel">
   <h4>Slide Descriptions</h4>
   <div id="desc-list"></div>
@@ -714,35 +1132,97 @@ Reveal.initialize({
   slideNumber: true,
   transition: 'slide',
   controlsTutorial: false,
+  keyboard: {
+    37: 'prev',     // left arrow
+    39: 'next',     // right arrow
+    32: 'next',     // space
+    72: null,       // H — disable default
+    191: null,      // ? (slash key) — disable default
+    38: null,       // up
+    40: null,       // down
+    78: null,       // N
+    80: null,       // P
+    13: null,       // enter
+  },
+  navigationMode: 'linear',
 });
 
 (function() {
   var slides = [
-    { h: 0, v: 0, title: "Title", desc: "Autoresearch TAO — incentivized autonomous ML research on Bittensor. Hackathon intro slide." },
-    { h: 1, v: 0, title: "The Problem", desc: "AI agents can run ML experiments but lack incentive. We need a reward mechanism proportional to research contributions." },
-    { h: 2, v: 0, title: "What is Autoresearch?", desc: "An AI agent autonomously modifies, trains, evaluates, and iterates on a small LLM. Inspired by Karpathy's vision of SETI@home-style collaboration." },
-    { h: 2, v: 1, title: "The Experiment Loop", desc: "Six-step cycle: Think, Claim, Edit, Train, Publish, Loop. Agents coordinate to avoid duplicate work." },
-    { h: 2, v: 2, title: "The Model", desc: "Two configs: production ~50M params on H100 (5 min budget) vs demo ~0.3M params on laptop (30s budget, tinyshakespeare). val_bpb = validation bits-per-byte — measures how well the model predicts text. Lower is better (fewer bits needed to encode each byte). Uses PyTorch, Flash Attention 3, Muon optimizer (production) or plain AdamW (demo)." },
-    { h: 3, v: 0, title: "Real Results (H100)", desc: "83 experiments overnight, 15 improvements kept, val_bpb (bits-per-byte on validation set) improved from 0.998 to 0.977 — a 2.1% improvement. Fully autonomous, zero human intervention. Lower val_bpb means the model compresses text better." },
-    { h: 3, v: 1, title: "What the Agent Discovered", desc: "Incremental improvements: batch size halving, warmdown tuning, warmup, deeper models, init tweaks, window patterns, and seed changes." },
-    { h: 4, v: 0, title: "Autoresearch@Home", desc: "SETI@home for ML. Multiple agents on different GPUs share claims, results, hypotheses, and insights via Ensue coordination layer." },
-    { h: 4, v: 1, title: "VRAM Tiers", desc: "Fair hardware comparison: small (≤16GB), medium (≤24GB), large (≤48GB), xl (>48GB). Agents pull tier-appropriate configs." },
-    { h: 4, v: 2, title: "Collective Intelligence", desc: "Swarm API: analyze state, share insights, claim experiments, publish results. Agents share reasoning, not just metrics." },
-    { h: 5, v: 0, title: "Enter Bittensor", desc: "Transform altruistic collaboration into an incentivized Bittensor subnet. Miners earn TAO (Bittensor's native token) proportional to their model quality. Validators score miners and call set_weights() on-chain. Yuma Consensus aggregates validator weights and distributes TAO rewards each epoch — better val_bpb = higher weight = more TAO." },
-    { h: 6, v: 0, title: "Architecture", desc: "Miner (HTTP :8091) runs train_lite.py on demand. Validator (HTTP :8092) queries miners, scores results, sets weights. Subtensor handles consensus." },
-    { h: 6, v: 1, title: "Data Flow", desc: "Validator POSTs /run → Miner trains ~30s → SubmissionStore applies anti-cheat + dedup + scoring → Weights = (best/miner_bpb)² → Validator calls set_weights() on Bittensor → Yuma Consensus distributes TAO rewards proportionally each epoch. Better model = more TAO." },
-    { h: 7, v: 0, title: "The Protocol", desc: "ExperimentResult is a Python dataclass sent as JSON over HTTP. Key fields: val_bpb (the metric — validation bits-per-byte), train_py_hash (SHA256 of train script for dedup), agent_id, status, timing, memory. Libraries: Python dataclasses, hashlib. In production this would be a bt.Synapse over Bittensor's dendrite/axon protocol." },
-    { h: 8, v: 0, title: "The Miner", desc: "HTTP server that runs experiments on demand. Validator sends POST /run, miner executes train_lite.py, returns ExperimentResult JSON." },
-    { h: 8, v: 1, title: "Miner Internals", desc: "subprocess.run executes train_lite.py with time budget, parses stdout metrics, returns ExperimentResult with hash for dedup." },
-    { h: 9, v: 0, title: "The Validator", desc: "Two roles: query loop (POST /run, collect results, anti-cheat, leaderboard) and REST API (/api/leaderboard, /api/feed, /api/results, /api/status)." },
-    { h: 9, v: 1, title: "Scoring Formula", desc: "Scoring: lower val_bpb (bits-per-byte) = better language model = higher score. The best miner gets score 1.0. All others are scored as (best_bpb / their_bpb)², so a miner 1% worse gets ~0.98. Scores are normalized into weights that sum to 1.0. These weights are set on the Bittensor blockchain via set_weights(), and Yuma Consensus distributes TAO rewards proportionally — miners with higher weights earn more TAO each epoch." },
-    { h: 9, v: 2, title: "Anti-Cheat", desc: "Four checks: hash dedup (first submitter wins), staleness (1hr expiry), sanity bound (val_bpb ≥ 0.5), status check (completed only)." },
-    { h: 10, v: 0, title: "What We Built", desc: "Eight components including a CLI dashboard (cli-dashboard.py) for terminal-based monitoring. Libraries used: PyTorch (training), Python http.server (miner/validator HTTP), subprocess (miner runs train_lite.py), hashlib (SHA256 dedup), dataclasses (protocol), Rich (CLI dashboard with live tables/charts in terminal), Next.js + React + Tailwind (web UI dashboard), Ensue SDK (coordinator for swarm comms). Production adds: bittensor SDK (bt.Synapse, dendrite/axon, set_weights), Flash Attention 3, Muon optimizer." },
-    { h: 11, v: 0, title: "Live Demo", desc: "Five terminals: prepare data, start two miners (raven + nova), start validator querying both, launch UI dashboard." },
-    { h: 11, v: 1, title: "What Happens", desc: "Round-by-round output: miners submit val_bpb, validator scores and ranks, leaderboard displayed, mock weights set for TAO rewards." },
-    { h: 12, v: 0, title: "Why This Matters", desc: "GPU owners earn TAO, researchers get parallel experimentation, Bittensor gets a subnet where work is actual scientific discovery." },
-    { h: 13, v: 0, title: "The Big Picture", desc: "Evolution: Karpathy's single-agent autoresearch → Autoresearch@Home (multi-agent, altruistic) → Autoresearch TAO (incentivized on Bittensor)." },
-    { h: 14, v: 0, title: "Thank You", desc: "Join the swarm at ensue-network.ai/join → /autoresearch." }
+    { h: 0, v: 0, title: "Title",
+      desc: "Autoresearch TAO is a Bittensor subnet that turns autonomous ML experimentation into an incentivized network. The core idea: AI agents (powered by Claude Code) independently run machine learning experiments on GPUs around the world, and earn TAO tokens proportional to the quality of their results. This project was built at the Bittensor SF Hackathon in March 2026." },
+
+    { h: 1, v: 0, title: "The Problem",
+      desc: "AI coding agents like Claude Code can already run ML experiments end-to-end — modify model code, train, evaluate, iterate. The missing piece is motivation: why would someone donate their expensive GPU time to run these experiments for free? Without an economic incentive, collaboration stays small and altruistic. We need a mechanism where contributors are rewarded in proportion to how much they actually improve the model. That's the gap Bittensor fills." },
+
+    { h: 2, v: 0, title: "What is Autoresearch?",
+      desc: "Autoresearch is a paradigm where an AI agent is given a small language model and autonomously tries to improve it. The agent modifies the training code (architecture, hyperparameters, optimizer settings), trains the model, checks the validation metric (val_bpb — bits per byte), and decides whether to keep or discard the change. It repeats this loop indefinitely. The term was popularized by Andrej Karpathy, who in March 2026 called for making it 'asynchronously massively collaborative' — like SETI@home but for ML research. That's exactly what we built." },
+
+    { h: 2, v: 1, title: "The Experiment Loop",
+      desc: "Each agent follows a six-step cycle. (1) THINK: pull the latest swarm state — what experiments have been tried, what's the current best val_bpb, what insights have others shared. (2) CLAIM: register the experiment you're about to run so no other agent duplicates it (claims expire after 15 minutes). (3) EDIT: modify train.py — this could be changing the model architecture, learning rate schedule, optimizer, attention pattern, or any other training parameter. (4) TRAIN: run the experiment with a fixed compute budget (5 min on H100, 30s in demo). (5) PUBLISH: share the result (val_bpb, memory used, training code hash) plus qualitative insights about what worked and why. (6) LOOP: go back to step 1 and repeat forever." },
+
+    { h: 2, v: 2, title: "The Model",
+      desc: "We have two model configurations. Production (~50M params): 8 transformer layers, 4 attention heads, 512 embedding dim, 8192 BPE vocabulary. Uses Flash Attention 3 with sliding window for efficient long-context attention, and the Muon optimizer (a momentum-based optimizer that's been shown to outperform AdamW on small models) combined with AdamW for embeddings. Each experiment gets a 5-minute training budget on an H100. Demo (~0.3M params): 3 layers, 4 heads, 128 embedding dim, character-level vocabulary (~69 chars from tinyshakespeare). Uses standard PyTorch SDPA attention and plain AdamW. Runs on CPU or Apple MPS in ~30 seconds. The key metric is val_bpb (validation bits-per-byte): it measures how many bits the model needs on average to encode each byte of unseen text. Lower is better — it means the model predicts text more accurately. Think of it as a normalized perplexity that's comparable across different tokenizers." },
+
+    { h: 3, v: 0, title: "Real Results (H100)",
+      desc: "We ran Claude Code autonomously on an H100 GPU overnight. It executed 83 experiments in ~7 hours (each taking about 5 minutes of training plus thinking and publishing time). Of those 83, 15 produced genuine improvements that were kept. The baseline val_bpb started at 0.998 and the best achieved was 0.977 — a 2.1% relative improvement. This may sound small, but in language modeling, every fraction of a bit matters: the improvements compound and represent real gains in the model's ability to predict text. All of this happened with zero human intervention — the agent decided what to try, ran it, evaluated the results, and moved on." },
+
+    { h: 3, v: 1, title: "What the Agent Discovered",
+      desc: "The table shows the 15 incremental improvements the agent found, in chronological order. Key discoveries: (1) Halving the batch size from 524K to 262K tokens gave more gradient steps within the same compute budget, improving generalization. (2) Increasing warmdown from 0.5 to 0.7 gave the learning rate more time to cool down, stabilizing final performance. (3) Adding a 5% warmup phase prevented early training instability. (4) Making the model deeper (9 layers) with a different aspect ratio improved capacity. (5) Reducing the x0_lambda initialization from 0.1 to 0.05 helped residual stream scaling. Further experiments explored sliding window attention patterns, separate embedding learning rates, RoPE base frequency tuning, and even random seed changes. The final improvement (#15) came from changing the seed from 42 to 137, suggesting the loss landscape has multiple basins worth exploring." },
+
+    { h: 4, v: 0, title: "Autoresearch@Home",
+      desc: "This is the multi-agent version — SETI@home but for ML research. Instead of one agent on one GPU, we have multiple AI agents on different machines, all collaborating through a shared coordination layer built on Ensue (a real-time document/state sync platform). The shared state is organized into namespaces: claims/ tracks who's working on what (with 15-minute expiry to handle crashed agents), results/ stores completed experiments with the full train.py code, hypotheses/ contains ideas agents want someone to try, insights/ holds collective learnings about what works and why, and best/ stores the current global best configuration (plus per-VRAM-tier bests so agents on smaller GPUs have fair targets)." },
+
+    { h: 4, v: 1, title: "VRAM Tiers",
+      desc: "Different GPUs have vastly different memory capacities, and a model config optimized for an H100 (80GB) would crash on an RTX 4070 (12GB). To make the comparison fair, we categorize hardware into four VRAM tiers: small (≤16GB, e.g. RTX 4070, RTX 3060), medium (≤24GB, e.g. RTX 3090, RTX 4090), large (≤48GB, e.g. A6000, L40), and xl (>48GB, e.g. A100, H100, H200). Each agent auto-detects its VRAM at startup and pulls the best configuration from its own tier. This means an RTX 3060 agent competes against other ≤16GB machines, not against H100s. Tier detection is automatic via torch.cuda.get_device_properties() and the tiers are stored in the Ensue shared state under best/tier/<tier_name>/." },
+
+    { h: 4, v: 2, title: "Collective Intelligence",
+      desc: "The coordinator API (coordinator.py, ~1354 lines) is how agents interact with the swarm. Key methods: coord.analyze_swarm() returns a full snapshot — who's active, what's been tried, best results per tier. coord.get_swarm_insights('optimizer') retrieves collective learnings filtered by topic. coord.get_unclaimed_hypotheses() returns experiment ideas posted by other agents that nobody has claimed yet. To run an experiment: coord.claim_experiment('try wider model') reserves a slot, then after training you call coord.publish_result(exp_key, val_bpb, memory_gb, ...) to share the outcome. Agents also call coord.post_insight('wider model helped because...') and coord.publish_hypothesis('try even wider', ...) to share qualitative reasoning. The key insight is that agents share their reasoning, not just their metrics — this makes the entire swarm smarter over time, as later agents can learn from earlier agents' failures and successes." },
+
+    { h: 5, v: 0, title: "Enter Bittensor",
+      desc: "Bittensor is a decentralized network where different 'subnets' perform different types of useful work. Each subnet has miners (who do the work) and validators (who verify and score the work). The blockchain runs Yuma Consensus to aggregate validator scores into weights, and distributes TAO tokens (Bittensor's cryptocurrency) proportionally. Before Bittensor, our Autoresearch@Home system was purely altruistic — agents donated GPU time out of goodwill, with no economic incentive and trust-based collaboration. By wrapping it as a Bittensor subnet, we get: (1) miners earn TAO for contributing experiments, (2) better results earn proportionally more TAO, creating competitive pressure to improve, and (3) anti-cheat is enforced by validators, not trust. The economic incentive transforms this from a hobby project into a scalable research network." },
+
+    { h: 6, v: 0, title: "Architecture",
+      desc: "The subnet has three layers. Miner (HTTP server on port 8091): each GPU participant runs one miner process. It exposes an /run endpoint that accepts POST requests from the validator and executes train_lite.py as a subprocess. It also serves GET /health and GET /status for monitoring. Each miner has a unique ID (e.g. 'raven', 'nova'). Only one experiment runs at a time (protected by a threading lock). Validator (HTTP server on port 8092): a single instance that orchestrates the network. It runs a query loop that POSTs /run to every registered miner, collects ExperimentResult responses, applies anti-cheat checks, scores submissions, maintains a leaderboard, and calls set_weights() to update the blockchain. It also serves a REST API (/api/leaderboard, /api/feed, /api/results, /api/status) consumed by the web UI. Subtensor (blockchain): in production, this is Bittensor's actual blockchain running Yuma Consensus. In our demo, set_weights() is mocked — we log what would be sent." },
+
+    { h: 6, v: 1, title: "Data Flow",
+      desc: "Step by step, every 45 seconds: (1) The validator loop fires and sends POST /run to each registered miner. (2) Each miner receives the request, spawns train_lite.py as a subprocess with a time budget (30s demo, 5min production), waits for it to finish, parses the stdout for metrics (val_bpb, memory, tokens processed, etc.). (3) The miner returns an ExperimentResult JSON containing val_bpb, train_py_hash (SHA256 of the training script for dedup), timing, memory usage, and status. (4) The validator's SubmissionStore receives each result and applies anti-cheat: rejects duplicates (same train_py_hash, first submitter wins), rejects stale results (>1 hour old), rejects impossible scores (val_bpb < 0.5), rejects non-completed experiments. (5) Scoring: the best miner gets score 1.0, all others get (best_bpb / their_bpb)². This quadratic penalty means small differences in quality lead to meaningful differences in reward. (6) Scores are normalized into weights summing to 1.0. (7) The validator calls set_weights() on the Bittensor blockchain. (8) Yuma Consensus processes these weights and distributes TAO rewards proportionally each epoch." },
+
+    { h: 7, v: 0, title: "The Protocol",
+      desc: "ExperimentResult is the data contract between miners and validators, defined as a Python @dataclass in protocol.py (~50 lines). Fields: agent_id (unique miner identifier), val_bpb (the primary metric — validation bits-per-byte, lower is better), memory_gb (peak GPU memory used during training), training_seconds (wall-clock time), total_tokens_M (millions of tokens processed), num_steps (training iterations completed), num_params_M (model parameter count in millions), status ('completed' or 'failed'), description (human-readable summary of what was tried), experiment_key (unique experiment identifier), train_py_hash (SHA256 hash of the training script — used for dedup so copying someone else's code doesn't earn double credit), timestamp (Unix epoch), accepted (set by validator after anti-cheat), score (set by validator using the scoring formula). In the demo, this is serialized as plain JSON over HTTP POST/response. In production, this would be a bt.Synapse subclass transported over Bittensor's dendrite (client) / axon (server) protocol, which handles authentication, encryption, and routing natively." },
+
+    { h: 8, v: 0, title: "The Miner",
+      desc: "The miner (miner.py, ~217 lines) is a Python HTTP server built on http.server.HTTPServer. It registers two endpoints: POST /run (triggers an experiment) and GET /health + GET /status (for monitoring). When the validator sends POST /run, the handler acquires a threading lock (ensuring only one experiment runs at a time), then calls _run_experiment(). The miner has a configurable --time-budget (default 30s) and --miner-id. On startup, it downloads the training data if not present (prepare_lite.py handles tokenization of tinyshakespeare into train.bin/val.bin). The /status endpoint returns whether the miner is idle or currently running an experiment, which the validator and UI can poll." },
+
+    { h: 8, v: 1, title: "Miner Internals",
+      desc: "Inside _run_experiment(): the miner sets the AUTORESEARCH_TIME_BUDGET environment variable and calls subprocess.run([sys.executable, 'train_lite.py'], capture_output=True, text=True, timeout=time_budget+60). The +60 second buffer prevents the subprocess timeout from racing with the training budget. train_lite.py prints structured metrics to stdout which the miner parses (val_bpb, peak memory, tokens processed, steps completed, parameter count). It also computes hash_file('train_lite.py') — the SHA256 of the training script — which goes into the ExperimentResult. This hash is critical for anti-cheat: if two miners submit results from identical training code, only the first submission counts. The result is serialized to JSON and returned as the HTTP response body. If train_lite.py crashes or times out, the miner returns status='failed' with the error message in the description field." },
+
+    { h: 9, v: 0, title: "The Validator",
+      desc: "The validator (validator.py, ~372 lines) is the brain of the subnet. It has two main responsibilities. (1) Query Loop: runs every 45 seconds in a background thread. For each registered miner URL, it sends POST /run with a 120-second timeout, collects the ExperimentResult JSON, passes it through the SubmissionStore for anti-cheat and scoring, then prints the updated leaderboard and calls set_weights(). If a miner is unreachable or times out, it's skipped for that round but stays registered. (2) REST API: an HTTP server on port 8092 serving four endpoints that the web UI and CLI dashboard consume. /api/leaderboard returns ranked miners with their best val_bpb, score, weight, and experiment count. /api/feed returns a chronological stream of all experiment results (accepted and rejected). /api/results returns raw result data for charting. /api/status returns subnet health (active miners, total experiments, best val_bpb, uptime)." },
+
+    { h: 9, v: 1, title: "Scoring Formula",
+      desc: "The scoring system converts val_bpb (validation bits-per-byte) into TAO rewards. val_bpb measures how many bits the model needs on average to encode each byte of unseen validation text — it's essentially a normalized perplexity that works across different tokenizers. Lower val_bpb = the model predicts text more accurately = better. Scoring: find the best (lowest) val_bpb across all miners. That miner gets score = 1.0. Every other miner gets score = (best_bpb / their_bpb)². The squaring amplifies small differences: a miner with val_bpb 1% worse than the best gets score ~0.98, but a miner 10% worse gets score ~0.83. This creates strong competitive pressure to improve. Scores are normalized into weights that sum to 1.0 (each miner's weight = their score / sum of all scores). The validator calls set_weights() on the Bittensor blockchain with these weights. Bittensor's Yuma Consensus then distributes TAO rewards proportionally each epoch (~12 minutes). So if you have weight 0.4 and the subnet earns 10 TAO per epoch, you earn 4 TAO. The economic result: the best ML researcher earns the most money." },
+
+    { h: 9, v: 2, title: "Anti-Cheat",
+      desc: "The SubmissionStore in the validator enforces four anti-cheat rules before accepting any result. (1) Dedup via train_py_hash: every ExperimentResult includes the SHA256 hash of the training script. If a hash has been seen before, only the first submission counts — this prevents miners from copying another miner's successful code and submitting it as their own. (2) Staleness: results with a timestamp older than 1 hour are rejected. This prevents miners from replaying old successful results and forces continuous fresh experimentation. (3) Sanity bound: val_bpb must be ≥ 0.5. A model genuinely trained on natural language text cannot achieve bits-per-byte below ~0.5 on short training runs. Values below this threshold indicate fabricated metrics. (4) Status check: only results with status='completed' are scored. Failed experiments, timeouts, and crashes are recorded in the feed but receive zero score. Together, these rules ensure that miners must actually run novel experiments, submit fresh results, and achieve physically plausible metrics to earn rewards." },
+
+    { h: 10, v: 0, title: "What We Built",
+      desc: "Eight components built during the hackathon. protocol.py (~50 lines): ExperimentResult @dataclass — the data contract, using Python dataclasses and hashlib for SHA256. miner.py (~217 lines): HTTP server using Python's http.server, spawns train_lite.py via subprocess, thread-locked to one experiment at a time. validator.py (~372 lines): query loop + SubmissionStore + scoring + REST API, all in http.server. train_lite.py (~304 lines): a complete GPT training script using PyTorch — transformer model, SDPA attention, AdamW optimizer, cosine LR schedule, trains on tinyshakespeare character-level data. prepare_lite.py (~258 lines): downloads tinyshakespeare, builds character-level tokenizer, serializes to binary train.bin/val.bin files. coordinator.py (~1354 lines): the Ensue-based swarm coordination layer for production multi-agent collaboration — claim management, result sharing, hypothesis posting, insight aggregation, VRAM tier tracking. cli-dashboard.py: terminal-based live dashboard using the Rich library — displays leaderboard tables, experiment feed, and real-time stats in the terminal. ui/ directory: Next.js + React + Tailwind CSS web dashboard — leaderboard, experiment feed, val_bpb chart over time. Production dependencies add: bittensor SDK (bt.Synapse for typed messages, dendrite/axon for transport, set_weights for blockchain), Flash Attention 3, and the Muon optimizer." },
+
+    { h: 11, v: 0, title: "Live Demo",
+      desc: "The demo runs entirely on a laptop with five terminal windows. Terminal 1: python prepare_lite.py — downloads tinyshakespeare (~1MB), builds a character-level vocabulary of ~69 unique characters, tokenizes the text, splits 90/10 into train.bin and val.bin. This only needs to run once. Terminal 2: python miner.py --port 8091 --miner-id raven — starts the first miner, listens for POST /run from the validator. Terminal 3: python miner.py --port 8093 --miner-id nova — starts a second miner on a different port with a different ID. Terminal 4: python validator.py --miners http://localhost:8091,http://localhost:8093 — starts the validator, which immediately begins its query loop: POST /run to both miners every 45 seconds, score the results, update leaderboard, set mock weights. Terminal 5: cd ui && npm run dev — starts the Next.js web dashboard on localhost:3000, which polls the validator's REST API and displays the leaderboard, experiment feed, and val_bpb chart in real-time." },
+
+    { h: 11, v: 1, title: "What Happens",
+      desc: "Each round (every 45 seconds), the validator sends POST /run to both miners simultaneously. Each miner spawns train_lite.py, which trains the ~0.3M parameter character-level GPT on tinyshakespeare for ~30 seconds. The training script prints val_bpb and other metrics to stdout. The miner parses these and returns an ExperimentResult JSON. The validator receives both results, runs anti-cheat (dedup hash check, staleness, sanity bound), scores them (best gets 1.0, others get (best/theirs)²), and prints a leaderboard. In the example output: Round 1, raven achieves val_bpb=2.8341 (score 1.000) and nova achieves val_bpb=2.8512 (score 0.988). Weights are computed: raven gets 0.5030, nova gets 0.4970 — nearly equal because their results are close. In production, these weights would be sent to the Bittensor blockchain and raven would earn slightly more TAO. Over subsequent rounds, the two miners will produce varying results (different random seeds, different initialization), and the leaderboard will shift as miners occasionally beat each other." },
+
+    { h: 12, v: 0, title: "Why This Matters",
+      desc: "Three stakeholders benefit. For GPU owners: instead of your GPU sitting idle or mining proof-of-work hashes, it earns TAO by contributing to actual ML research. The barrier to entry is low — run a miner, let the AI agent experiment autonomously, earn rewards proportional to how good your results are. For researchers: instead of running experiments one at a time on your own hardware, you get massively parallel experimentation across a global network of GPUs, with economic incentives ensuring participants actually try to improve the model rather than free-riding. For Bittensor: most existing subnets perform useful but routine tasks (text generation, image generation, storage). This is the first subnet where the 'work' being performed is actual scientific discovery — agents are finding novel model architectures, optimizer configurations, and hyperparameter settings that genuinely advance the state of the art on a benchmark. The tagline: the first subnet where miners do science." },
+
+    { h: 13, v: 0, title: "The Big Picture",
+      desc: "This project represents a three-stage evolution. Stage 1 — Karpathy's Autoresearch: a single AI agent on a single GPU, running a loop of modify-train-evaluate-repeat. Powerful but limited to one machine's compute. Stage 2 — Autoresearch@Home: multiple AI agents on different GPUs, collaborating through the Ensue coordination layer. Agents share results, insights, hypotheses, and claims. The swarm gets smarter together. But it's altruistic — there's no reason for strangers to participate. Stage 3 — Autoresearch TAO (what we built): the same multi-agent collaborative research, but wrapped as a Bittensor subnet with economic incentives. Validators verify and score results, the blockchain distributes TAO rewards proportionally, and anti-cheat mechanisms prevent gaming. The economic layer transforms a research toy into a scalable, self-sustaining network where anyone with a GPU can contribute to ML research and get paid for it." },
+
+    { h: 14, v: 0, title: "Thank You",
+      desc: "Autoresearch TAO was built at the Bittensor SF Hackathon in March 2026. The project combines autonomous ML experimentation (autoresearch), decentralized multi-agent collaboration (Ensue), and crypto-economic incentives (Bittensor/TAO). Join the research swarm at ensue-network.ai/join → /autoresearch." }
   ];
 
   var list = document.getElementById('desc-list');
@@ -766,16 +1246,50 @@ Reveal.initialize({
     list.appendChild(div);
   });
 
-  toggle.addEventListener('click', function() {
-    panel.classList.toggle('visible');
+  var notesVisible = false;
+
+  function toggleNotes() {
+    notesVisible = !notesVisible;
+    // Toggle side panel
+    panel.classList.toggle('visible', notesVisible);
+    // Toggle speaker notes on ALL slides
+    document.querySelectorAll('.speaker-notes').forEach(function(n) {
+      n.classList.toggle('visible', notesVisible);
+    });
+    if (notesVisible) {
+      // Auto-expand the current slide's description in side panel
+      var idx = Reveal.getIndices();
+      for (var i = 0; i < slides.length; i++) {
+        if (slides[i].h === idx.h && slides[i].v === idx.v) {
+          var descText = list.children[i].querySelector('.desc-text');
+          descText.style.display = 'block';
+          list.children[i].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+          break;
+        }
+      }
+    }
+  }
+
+  toggle.addEventListener('click', toggleNotes);
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === '?') {
+      toggleNotes();
+    }
   });
 
   Reveal.on('slidechanged', function(event) {
     var items = list.querySelectorAll('.desc-item');
-    items.forEach(function(item) { item.classList.remove('active'); });
+    items.forEach(function(item) {
+      item.classList.remove('active');
+      item.querySelector('.desc-text').style.display = 'none';
+    });
     for (var i = 0; i < slides.length; i++) {
       if (slides[i].h === event.indexh && slides[i].v === event.indexv) {
         items[i].classList.add('active');
+        if (notesVisible) {
+          items[i].querySelector('.desc-text').style.display = 'block';
+        }
         items[i].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
         break;
       }

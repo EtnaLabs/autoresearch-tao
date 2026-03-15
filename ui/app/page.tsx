@@ -12,6 +12,7 @@ export default function Home() {
   const { agents, timelineData, feedItems, totalExperiments, totalMiners, globalBestBpb, loading, error } = useLiveData();
 
   const totalImprovements = agents.reduce((s, a) => s + a.improvements, 0);
+  const totalTao = agents.reduce((s, a) => s + a.taoEarned, 0);
 
   return (
     <div className="h-screen flex flex-col overflow-hidden">
@@ -37,6 +38,12 @@ export default function Home() {
               <span>
                 <span className="text-[var(--accent)]">&bull;</span>{" "}
                 best: {globalBestBpb.toFixed(4)}
+              </span>
+            )}
+            {totalTao > 0 && (
+              <span>
+                <span className="text-[var(--accent)]">&bull;</span>{" "}
+                {totalTao.toFixed(4)} TAO distributed
               </span>
             )}
           </div>

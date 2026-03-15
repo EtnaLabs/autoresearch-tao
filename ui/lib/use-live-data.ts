@@ -13,6 +13,7 @@ export interface Agent {
   improvements: number;
   score: number;
   lastSeen: number;
+  taoEarned: number;
 }
 
 export interface TimelinePoint {
@@ -93,6 +94,7 @@ export function useLiveData(): LiveData {
         improvements: e.improvements,
         score: e.score,
         lastSeen: e.lastSeen,
+        taoEarned: (e.taoEarned as number) || 0,
       }));
 
       const timelineData: TimelinePoint[] = (json.results || []).map((r: Record<string, unknown>) => ({
