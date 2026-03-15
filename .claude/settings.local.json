@@ -1,0 +1,5 @@
+{
+  "enabledPlugins": {
+    "ensue-memory@ensue-memory-network": true
+  }
+}

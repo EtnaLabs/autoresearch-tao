@@ -1,0 +1,70 @@
+@import "tailwindcss";
+
+:root {
+  --background: #0a0a0a;
+  --background-secondary: #111111;
+  --foreground: #e8e8e8;
+  --accent: #00d4aa;
+  --accent-dim: #00a888;
+  --accent-glow: rgba(0, 212, 170, 0.15);
+  --muted: #6b6b6b;
+  --muted-light: #8a8a8a;
+  --border: #1e1e1e;
+  --card: #141414;
+  --card-border: #222222;
+  --keep: #00d4aa;
+  --discard: #6b6b6b;
+  --crash: #ef4444;
+}
+
+@theme inline {
+  --color-background: #0a0a0a;
+  --color-foreground: #e8e8e8;
+  --color-accent: #00d4aa;
+  --color-accent-dim: #00a888;
+  --color-muted: #6b6b6b;
+  --color-border: #1e1e1e;
+  --color-card: #141414;
+  --color-card-border: #222222;
+  --color-keep: #00d4aa;
+  --color-discard: #6b6b6b;
+  --color-crash: #ef4444;
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: #0a0a0a;
+  color: #e8e8e8;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #222;
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #6b6b6b;
+}
+
+/* Remove focus outlines on click */
+*:focus {
+  outline: none;
+}
+*:focus-visible {
+  outline: 2px solid #00d4aa;
+  outline-offset: 2px;
+}
+
+/* Selection color */
+::selection {
+  background: rgba(0, 212, 170, 0.15);
+  color: #00d4aa;
+}

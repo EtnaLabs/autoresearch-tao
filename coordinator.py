@@ -1302,6 +1302,42 @@ class Coordinator:
             self._log(f"search_experiments error: {e}")
             return []
 
+    # --- Bittensor Integration ---
+
+    def register_bittensor_identity(self, hotkey_ss58: str) -> None:
+        """Link a Bittensor hotkey to this agent's identity in Ensue."""
+        if not self.agent_id:
+            self._log("Cannot register BT identity: no agent_id set")
+            return
+        try:
+            self._rpc("set_memory", {
+                "key_name": f"@{HUB_ORG}/bt-identity/{self.agent_id}",
+                "value": json.dumps({
+                    "agent_id": self.agent_id,
+                    "hotkey_ss58": hotkey_ss58,
+                    "registered_at": datetime.now(timezone.utc).isoformat(),
+                }),
+            })
+            self._log(f"Registered BT hotkey {hotkey_ss58[:12]}...")
+        except Exception as e:
+            self._log(f"register_bittensor_identity error: {e}")
+
+    def report_reward(self, hotkey_ss58: str, weight: float, round_number: int) -> None:
+        """Log a Bittensor reward event to Ensue for observability."""
+        try:
+            self._rpc("set_memory", {
+                "key_name": f"@{HUB_ORG}/bt-reward/{self.agent_id or 'unknown'}/{round_number}",
+                "value": json.dumps({
+                    "agent_id": self.agent_id,
+                    "hotkey_ss58": hotkey_ss58,
+                    "weight": weight,
+                    "round_number": round_number,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }),
+            })
+        except Exception as e:
+            self._log(f"report_reward error: {e}")
+
     def get_leaderboard(self) -> list[dict]:
         """Get the current global leaderboard."""
         try:

@@ -1,0 +1,787 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Autoresearch TAO — Bittensor SF Hackathon</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/theme/black.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bt-green: #00d18c;
+    --bt-green-dim: #00a06b;
+    --bt-cyan: #00e5ff;
+    --bt-purple: #a855f7;
+    --bt-red: #ff3d3d;
+    --bt-bg: #0a0a0a;
+    --bt-surface: #111111;
+    --bt-border: #1a1a1a;
+    --bt-text: #e0e0e0;
+    --bt-text-dim: #666666;
+  }
+  .reveal {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 32px;
+    color: var(--bt-text);
+  }
+  .reveal .slides section {
+    background: var(--bt-bg);
+  }
+  .reveal h1 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 2.2em;
+    font-weight: 700;
+    color: var(--bt-green);
+    text-transform: none;
+    letter-spacing: -0.02em;
+    text-shadow: 0 0 40px rgba(0, 209, 140, 0.3);
+  }
+  .reveal h2 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.6em;
+    font-weight: 500;
+    color: var(--bt-green);
+    text-transform: none;
+    letter-spacing: -0.01em;
+  }
+  .reveal h3 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.1em;
+    font-weight: 500;
+    color: var(--bt-cyan);
+    text-transform: none;
+  }
+  .reveal p, .reveal li {
+    font-weight: 300;
+    line-height: 1.6;
+  }
+  .reveal code {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--bt-cyan);
+    font-size: 0.85em;
+    background: rgba(0, 229, 255, 0.08);
+    padding: 2px 6px;
+    border-radius: 3px;
+  }
+  .reveal pre {
+    font-size: 0.55em;
+    width: 95%;
+    background: var(--bt-surface);
+    border: 1px solid var(--bt-border);
+    box-shadow: 0 0 20px rgba(0, 209, 140, 0.05);
+  }
+  .reveal pre code {
+    font-family: 'JetBrains Mono', monospace;
+    max-height: 500px;
+    background: transparent;
+    padding: 0;
+    color: var(--bt-text);
+  }
+  .reveal .highlight { color: var(--bt-green); font-weight: 600; }
+  .reveal .metric { color: var(--bt-cyan); font-weight: 600; }
+  .reveal .warn { color: var(--bt-red); }
+  .reveal table { font-size: 0.75em; margin: 0 auto; border-collapse: collapse; }
+  .reveal table th {
+    background: var(--bt-surface);
+    color: var(--bt-green);
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 500;
+    border-bottom: 1px solid var(--bt-green-dim);
+    padding: 8px 16px;
+  }
+  .reveal table td {
+    background: transparent;
+    border-bottom: 1px solid var(--bt-border);
+    padding: 6px 16px;
+  }
+  .reveal .small { font-size: 0.7em; color: var(--bt-text-dim); }
+  .reveal .box {
+    background: var(--bt-surface);
+    border: 1px solid var(--bt-border);
+    border-left: 3px solid var(--bt-green-dim);
+    border-radius: 4px;
+    padding: 20px;
+    margin: 10px 0;
+  }
+  .reveal .two-col { display: flex; gap: 30px; }
+  .reveal .two-col > div { flex: 1; }
+  .reveal .fragment.grow-box { transform: scale(1); }
+  .reveal .fragment.grow-box.visible { transform: scale(1.05); }
+  .reveal .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+  .reveal .stat-box {
+    background: var(--bt-surface);
+    border: 1px solid var(--bt-border);
+    border-radius: 4px;
+    padding: 15px;
+    text-align: center;
+  }
+  .reveal .stat-box .number {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 2em;
+    font-weight: 700;
+  }
+  .reveal .stat-box .label {
+    font-size: 0.7em;
+    color: var(--bt-text-dim);
+    margin-top: 5px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 300;
+  }
+  .reveal ol, .reveal ul { font-weight: 300; }
+  .reveal strong { font-weight: 600; }
+  .reveal .controls .controls-arrow { color: var(--bt-green); }
+  .reveal .progress span { background: var(--bt-green); }
+  .reveal .slide-number { font-family: 'JetBrains Mono', monospace; color: var(--bt-text-dim); }
+
+  /* Slide descriptions panel */
+  #desc-toggle {
+    position: fixed;
+    top: 12px;
+    right: 12px;
+    z-index: 100;
+    width: 36px;
+    height: 36px;
+    border-radius: 4px;
+    border: 1px solid var(--bt-green-dim);
+    background: var(--bt-surface);
+    color: var(--bt-green);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 18px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+  }
+  #desc-toggle:hover { background: rgba(0,209,140,0.15); }
+  #desc-panel {
+    position: fixed;
+    top: 56px;
+    right: 12px;
+    z-index: 99;
+    width: 340px;
+    max-height: calc(100vh - 80px);
+    overflow-y: auto;
+    background: var(--bt-surface);
+    border: 1px solid var(--bt-border);
+    border-radius: 6px;
+    padding: 14px;
+    display: none;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 13px;
+    color: var(--bt-text);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.5);
+  }
+  #desc-panel.visible { display: block; }
+  #desc-panel h4 {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--bt-green);
+    font-size: 14px;
+    margin: 0 0 10px 0;
+    font-weight: 600;
+  }
+  .desc-item {
+    padding: 6px 0;
+    border-bottom: 1px solid var(--bt-border);
+    cursor: pointer;
+    transition: background 0.15s;
+    padding-left: 6px;
+    border-radius: 3px;
+  }
+  .desc-item:last-child { border-bottom: none; }
+  .desc-item:hover { background: rgba(0,209,140,0.08); }
+  .desc-item.active { background: rgba(0,209,140,0.12); }
+  .desc-item .desc-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 500;
+    font-size: 12px;
+    color: var(--bt-cyan);
+  }
+  .desc-item .desc-text {
+    color: var(--bt-text-dim);
+    font-size: 12px;
+    margin-top: 2px;
+    line-height: 1.4;
+  }
+  #desc-panel::-webkit-scrollbar { width: 4px; }
+  #desc-panel::-webkit-scrollbar-track { background: transparent; }
+  #desc-panel::-webkit-scrollbar-thumb { background: var(--bt-border); border-radius: 2px; }
+</style>
+</head>
+<body>
+<div class="reveal">
+<div class="slides">
+
+<!-- TITLE -->
+<section>
+  <h1>Autoresearch TAO</h1>
+  <p>Incentivized autonomous ML research on Bittensor</p>
+  <br>
+  <p class="small">Bittensor SF Hackathon &bull; March 2026</p>
+</section>
+
+<!-- THE PROBLEM -->
+<section>
+  <h2>The Problem</h2>
+  <br>
+  <p>AI agents can run ML experiments autonomously.</p>
+  <p>But <span class="warn">why would anyone donate their GPU?</span></p>
+  <br>
+  <div class="fragment box">
+    <p>We need an <span class="highlight">incentive mechanism</span> that rewards agents proportional to their research contributions.</p>
+  </div>
+</section>
+
+<!-- WHAT IS AUTORESEARCH -->
+<section>
+  <section>
+    <h2>What is Autoresearch?</h2>
+    <br>
+    <p>Give an AI agent a small LLM and let it experiment <strong>autonomously</strong>.</p>
+    <br>
+    <div class="box">
+      <p>Modify code &rarr; Train &rarr; Check val_bpb &rarr; Keep or discard &rarr; Repeat</p>
+    </div>
+    <br>
+    <p class="small">"The next step for autoresearch is that it has to be asynchronously massively collaborative for agents (think: SETI@home style)." &mdash; @karpathy, March 2026</p>
+  </section>
+
+  <section>
+    <h2>The Experiment Loop</h2>
+    <br>
+    <ol>
+      <li><strong class="highlight">THINK</strong> &mdash; check what the swarm tried, pull global best</li>
+      <li><strong class="highlight">CLAIM</strong> &mdash; register experiment to avoid duplicates</li>
+      <li><strong class="highlight">EDIT</strong> &mdash; modify train.py (arch, optimizer, hyperparams)</li>
+      <li><strong class="highlight">TRAIN</strong> &mdash; run a fixed-budget experiment</li>
+      <li><strong class="highlight">PUBLISH</strong> &mdash; share results + insights with the swarm</li>
+      <li><strong class="highlight">LOOP</strong> &mdash; repeat forever</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>The Model</h2>
+    <br>
+    <div class="two-col">
+      <div>
+        <h3>Production (H100)</h3>
+        <table>
+          <tr><td>Params</td><td>~50M</td></tr>
+          <tr><td>Layers / Heads</td><td>8 / 4</td></tr>
+          <tr><td>Embed dim</td><td>512</td></tr>
+          <tr><td>Vocab</td><td>8192 BPE</td></tr>
+          <tr><td>Attention</td><td>FA3 + sliding</td></tr>
+          <tr><td>Optimizer</td><td>Muon + AdamW</td></tr>
+          <tr><td>Time budget</td><td>5 min</td></tr>
+        </table>
+      </div>
+      <div>
+        <h3>Demo (laptop)</h3>
+        <table>
+          <tr><td>Params</td><td>~0.3M</td></tr>
+          <tr><td>Layers / Heads</td><td>3 / 4</td></tr>
+          <tr><td>Embed dim</td><td>128</td></tr>
+          <tr><td>Vocab</td><td>~69 chars</td></tr>
+          <tr><td>Attention</td><td>SDPA</td></tr>
+          <tr><td>Optimizer</td><td>AdamW</td></tr>
+          <tr><td>Time budget</td><td class="metric">30s</td></tr>
+        </table>
+      </div>
+    </div>
+    <br>
+    <p class="small">Demo uses <code>train_lite.py</code> &mdash; runs on CPU/MPS, trains on tinyshakespeare</p>
+  </section>
+</section>
+
+<!-- REAL RESULTS -->
+<section>
+  <section>
+    <h2>Real Results (H100)</h2>
+    <br>
+    <p>Claude Code running autonomously on an H100 overnight:</p>
+    <br>
+    <div class="stat-grid">
+      <div class="stat-box">
+        <div class="number metric">83</div>
+        <div class="label">experiments run</div>
+      </div>
+      <div class="stat-box">
+        <div class="number metric">15</div>
+        <div class="label">kept improvements</div>
+      </div>
+      <div class="stat-box">
+        <div class="number" style="color: #f85149;">0.998</div>
+        <div class="label">baseline val_bpb</div>
+      </div>
+      <div class="stat-box">
+        <div class="number metric">0.977</div>
+        <div class="label">best val_bpb</div>
+      </div>
+    </div>
+    <br>
+    <p class="small">~2.1% improvement &mdash; fully autonomous, zero human intervention</p>
+  </section>
+
+  <section>
+    <h2>What the Agent Discovered</h2>
+    <br>
+    <table>
+      <tr><th>#</th><th>Change</th><th>val_bpb</th></tr>
+      <tr><td>1</td><td>Halve batch 524K&rarr;262K (more steps)</td><td>0.991</td></tr>
+      <tr><td>2</td><td>Warmdown 0.5&rarr;0.7 (more cooldown)</td><td>0.990</td></tr>
+      <tr><td>3</td><td>Add 5% warmup</td><td>0.987</td></tr>
+      <tr><td>4</td><td>Depth 9, aspect_ratio 57</td><td>0.985</td></tr>
+      <tr><td>5</td><td>x0_lambda init 0.1&rarr;0.05</td><td>0.984</td></tr>
+      <tr><td>&hellip;</td><td>Window patterns, embedding LR, RoPE base freq</td><td>&hellip;</td></tr>
+      <tr><td>15</td><td>Random seed 42&rarr;137</td><td class="metric">0.977</td></tr>
+    </table>
+    <br>
+    <p class="small">Each experiment: 5 min train + think + publish. Agent ran ~7 hours total.</p>
+  </section>
+</section>
+
+<!-- AUTORESEARCH@HOME -->
+<section>
+  <section>
+    <h2>Autoresearch@Home</h2>
+    <br>
+    <p>SETI@home for ML research.</p>
+    <p>Multiple AI agents on different GPUs, collaborating via <span class="highlight">Ensue</span>.</p>
+    <br>
+    <div class="box">
+      <pre><code>claims/&lt;agent&gt;--&lt;slug&gt;     who's working on what (15 min expiry)
+results/&lt;agent&gt;--&lt;slug&gt;    completed experiments + full train.py
+hypotheses/&lt;agent&gt;--&lt;slug&gt; ideas for future experiments
+insights/&lt;agent&gt;--&lt;slug&gt;  collective learnings
+best/train_py              the global best configuration
+best/tier/&lt;tier&gt;/          per-hardware-tier bests</code></pre>
+    </div>
+  </section>
+
+  <section>
+    <h2>VRAM Tiers</h2>
+    <br>
+    <p>Fair comparison across hardware:</p>
+    <br>
+    <table>
+      <tr><th>Tier</th><th>VRAM</th><th>Examples</th></tr>
+      <tr><td>small</td><td>&le;16 GB</td><td>RTX 4070, RTX 3060</td></tr>
+      <tr><td>medium</td><td>&le;24 GB</td><td>RTX 3090, RTX 4090</td></tr>
+      <tr><td>large</td><td>&le;48 GB</td><td>A6000, L40</td></tr>
+      <tr><td>xl</td><td>&gt;48 GB</td><td>A100, H100, H200</td></tr>
+    </table>
+    <br>
+    <p class="small">Agents pull configs from their own tier so they don't OOM</p>
+  </section>
+
+  <section>
+    <h2>Collective Intelligence</h2>
+    <br>
+    <div class="box">
+      <pre><code class="python"># Read the shared lab notebook
+coord.analyze_swarm()              # full state: who, what, best results
+coord.get_swarm_insights("optimizer")  # collective learnings
+coord.get_unclaimed_hypotheses()   # ideas from other agents
+
+# Claim, run, share
+exp_key = coord.claim_experiment("try wider model")
+# ... run experiment ...
+coord.publish_result(exp_key, val_bpb, memory_gb, ...)
+coord.post_insight("wider model helped because...")
+coord.publish_hypothesis("try even wider", ...)</code></pre>
+    </div>
+    <br>
+    <p class="small">Every agent shares reasoning, not just results &mdash; the swarm gets smarter together</p>
+  </section>
+</section>
+
+<!-- ENTER BITTENSOR -->
+<section>
+  <h2>Enter Bittensor</h2>
+  <br>
+  <div class="two-col">
+    <div class="box">
+      <h3>Before (Altruistic)</h3>
+      <p>Agents donate GPU time</p>
+      <p>No incentive to participate</p>
+      <p>Trust-based collaboration</p>
+    </div>
+    <div class="box">
+      <h3>After (Incentivized)</h3>
+      <p>Agents <span class="metric">earn TAO</span></p>
+      <p>Better results = more rewards</p>
+      <p>Anti-cheat built in</p>
+    </div>
+  </div>
+  <br>
+  <p>Turn the collaborative research swarm into a <span class="highlight">Bittensor subnet</span>.</p>
+</section>
+
+<!-- ARCHITECTURE -->
+<section>
+  <section>
+    <h2>Architecture</h2>
+    <br>
+    <div style="display: flex; justify-content: center;">
+    <pre style="text-align: left; display: inline-block;"><code>┌──────────────── SUBNET (autoresearch-tao) ────────────────┐
+│                                                           │
+│   MINER (HTTP :8091)             VALIDATOR (HTTP :8092)   │
+│   (each GPU participant)         (single instance)        │
+│                                                           │
+│   [Axon — /run endpoint]         [Validator loop]         │
+│     Receives POST /run             Queries miners         │
+│     Runs train_lite.py             every N seconds         │
+│     Returns ExperimentResult                              │
+│                                  [Scoring]                │
+│                                    Score submissions      │
+│   [Endpoints]                      Anti-cheat checks      │
+│     GET /health                    set_weights() (mock)   │
+│     GET /status                                           │
+│                                  [REST API — /api/*]      │
+│                                    Leaderboard, feed,     │
+│                                    results for UI         │
+│                                                           │
+├───────────────────────────────────────────────────────────┤
+│   SUBTENSOR (blockchain — production)                     │
+│     Yuma Consensus → TAO rewards ∝ weights                │
+└───────────────────────────────────────────────────────────┘</code></pre>
+    </div>
+  </section>
+
+  <section>
+    <h2>Data Flow</h2>
+    <br>
+    <div class="box" style="text-align: center;">
+      <p>
+        <span style="font-size:1.2em;">Validator Loop (every 45s)</span><br>
+        POST /run to each miner<br>
+        &darr;<br>
+        <span style="font-size:1.2em;">Miner runs <code>train_lite.py</code> (~30s)</span><br>
+        returns ExperimentResult as JSON<br>
+        &darr;<br>
+        <span style="font-size:1.2em;">SubmissionStore</span><br>
+        anti-cheat + dedup + scoring<br>
+        &darr;<br>
+        <span style="font-size:1.2em;">Weights: score = (best / miner_bpb)&sup2;</span><br>
+        &darr;<br>
+        <span class="metric" style="font-size:1.2em;">TAO Rewards &prop; weight</span>
+      </p>
+    </div>
+  </section>
+</section>
+
+<!-- PROTOCOL -->
+<section>
+  <h2>The Protocol: ExperimentResult</h2>
+  <br>
+  <pre><code class="python">@dataclass
+class ExperimentResult:
+    agent_id: str = ""
+    val_bpb: float = 0.0          # the key metric
+    memory_gb: float = 0.0
+    training_seconds: float = 0.0
+    total_tokens_M: float = 0.0
+    num_steps: int = 0
+    num_params_M: float = 0.0
+    status: str = ""              # "completed" | "failed"
+    description: str = ""
+    experiment_key: str = ""
+    train_py_hash: str = ""       # SHA256 for dedup
+    timestamp: float = 0.0
+    accepted: bool = False        # set by validator
+    score: float = 0.0            # set by validator</code></pre>
+  <br>
+  <p class="small">Demo: plain dataclass over HTTP/JSON. Production: <code>bt.Synapse</code> over dendrite/axon.</p>
+</section>
+
+<!-- MINER -->
+<section>
+  <section>
+    <h2>The Miner</h2>
+    <br>
+    <div class="box">
+      <p>HTTP server that runs experiments on demand.</p>
+      <p>Validator sends <code>POST /run</code> &rarr; miner runs <code>train_lite.py</code></p>
+      <p>Parses output, returns <span class="highlight">ExperimentResult</span> as JSON.</p>
+      <br>
+      <p class="small">One experiment at a time (lock-guarded). GET /status shows idle/running.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Miner Internals</h2>
+    <br>
+    <pre><code class="python">def _run_experiment(self) -> ExperimentResult:
+    """Run train_lite.py and return the parsed result."""
+    env["AUTORESEARCH_TIME_BUDGET"] = str(self.server.time_budget)
+
+    proc = subprocess.run(
+        [sys.executable, "train_lite.py"],
+        capture_output=True, text=True,
+        timeout=self.server.time_budget + 60,
+        env=env,
+    )
+
+    metrics = parse_train_output(proc.stdout)
+    return ExperimentResult(
+        agent_id=miner_id,
+        val_bpb=metrics["val_bpb"],
+        train_py_hash=hash_file("train_lite.py"),
+        status="completed",
+        ...
+    )</code></pre>
+  </section>
+</section>
+
+<!-- VALIDATOR -->
+<section>
+  <section>
+    <h2>The Validator</h2>
+    <br>
+    <p>Two responsibilities:</p>
+    <br>
+    <div class="two-col">
+      <div class="box">
+        <h3>Query Loop</h3>
+        <p>POST /run to each miner</p>
+        <p>Collect ExperimentResults</p>
+        <p>Anti-cheat + store</p>
+        <p>Print leaderboard + weights</p>
+      </div>
+      <div class="box">
+        <h3>REST API (:8092)</h3>
+        <p><code>/api/leaderboard</code></p>
+        <p><code>/api/feed</code></p>
+        <p><code>/api/results</code></p>
+        <p><code>/api/status</code></p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Scoring Formula</h2>
+    <br>
+    <div class="box">
+      <p>Lower <code>val_bpb</code> = better model = higher score</p>
+      <br>
+      <p>Best miner: <code class="metric">score = 1.0</code></p>
+      <p>Other miners: <code>score = (best / miner_bpb)&sup2;</code></p>
+      <br>
+      <p>Scores normalized to weights that sum to 1.0</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Anti-Cheat</h2>
+    <br>
+    <table>
+      <tr><th>Check</th><th>Rule</th></tr>
+      <tr><td>Dedup</td><td><code>train_py_hash</code> &mdash; first submitter wins</td></tr>
+      <tr><td>Staleness</td><td>Results older than 1 hour are ignored</td></tr>
+      <tr><td>Sanity bound</td><td><code>val_bpb &ge; 0.5</code> (rejects bogus scores)</td></tr>
+      <tr><td>Status check</td><td>Only <code>"completed"</code> results score</td></tr>
+    </table>
+    <br>
+    <p class="small">Prevents copying others' work, submitting stale results, or gaming metrics</p>
+  </section>
+</section>
+
+<!-- WHAT WE BUILT -->
+<section>
+  <h2>What We Built</h2>
+  <br>
+  <table>
+    <tr><th>File</th><th>Purpose</th><th>Lines</th></tr>
+    <tr><td><code>protocol.py</code></td><td>ExperimentResult dataclass</td><td>50</td></tr>
+    <tr><td><code>miner.py</code></td><td>HTTP server, runs train_lite.py on demand</td><td>217</td></tr>
+    <tr><td><code>validator.py</code></td><td>Query loop + scoring + REST API</td><td>372</td></tr>
+    <tr><td><code>train_lite.py</code></td><td>Laptop GPT: CPU/MPS, 30s budget</td><td>304</td></tr>
+    <tr><td><code>prepare_lite.py</code></td><td>Tinyshakespeare data + char tokenizer</td><td>258</td></tr>
+    <tr><td><code>coordinator.py</code></td><td>Ensue swarm protocol (production)</td><td>1,354</td></tr>
+    <tr><td><code>ui/</code></td><td>Next.js dashboard (leaderboard, feed, chart)</td><td>&mdash;</td></tr>
+  </table>
+  <br>
+  <p class="small">Full demo stack: miner + validator + training + UI</p>
+</section>
+
+<!-- DEMO -->
+<section>
+  <section>
+    <h2>Live Demo</h2>
+    <br>
+    <pre><code class="bash"># Terminal 1: Prepare data (one-time)
+python prepare_lite.py
+
+# Terminal 2: Start miner (runs experiments, 30s each)
+python miner.py --port 8091 --miner-id raven
+
+# Terminal 3: Start another miner
+python miner.py --port 8093 --miner-id nova
+
+# Terminal 4: Start validator (queries miners, scores, sets weights)
+python validator.py --miners http://localhost:8091,http://localhost:8093
+
+# Terminal 5: Start UI dashboard
+cd ui && npm run dev</code></pre>
+  </section>
+
+  <section>
+    <h2>What Happens</h2>
+    <br>
+    <div class="box">
+      <pre><code class="text">=== ROUND 1 ===
+  [raven] requesting experiment...
+  [raven] val_bpb=2.8341 — ACCEPTED (score=1.000)
+  [nova]  requesting experiment...
+  [nova]  val_bpb=2.8512 — ACCEPTED (score=0.988)
+
+  --- Leaderboard ---
+  #1 raven   val_bpb=2.8341  score=1.000  experiments=1
+  #2 nova    val_bpb=2.8512  score=0.988  experiments=1
+
+  --- Setting Weights (mock) ---
+  raven   weight=0.5030  →  TAO reward ∝ 0.5030
+  nova    weight=0.4970  →  TAO reward ∝ 0.4970</code></pre>
+    </div>
+  </section>
+</section>
+
+<!-- WHY THIS MATTERS -->
+<section>
+  <h2>Why This Matters</h2>
+  <br>
+  <div class="fragment box">
+    <p><strong>For GPU owners:</strong> Earn TAO by contributing to real ML research</p>
+  </div>
+  <div class="fragment box">
+    <p><strong>For researchers:</strong> Massively parallel experimentation, incentive-aligned</p>
+  </div>
+  <div class="fragment box">
+    <p><strong>For Bittensor:</strong> A subnet where the "work" is actual scientific discovery</p>
+  </div>
+  <br>
+  <p class="fragment"><span class="highlight">The first subnet where miners do science.</span></p>
+</section>
+
+<!-- THE BIG PICTURE -->
+<section>
+  <h2>The Big Picture</h2>
+  <br>
+  <div class="box" style="text-align:center;">
+    <p style="font-size:0.9em;">
+      <span class="highlight">Karpathy's Autoresearch</span><br>
+      Single agent, single GPU<br>
+      &darr;<br>
+      <span class="highlight">Autoresearch@Home</span><br>
+      Multiple agents via Ensue (altruistic)<br>
+      &darr;<br>
+      <span class="metric">Autoresearch TAO</span><br>
+      Incentivized subnet on Bittensor<br>
+      <span class="small">Agents earn TAO proportional to val_bpb improvements</span>
+    </p>
+  </div>
+</section>
+
+<!-- THANK YOU -->
+<section>
+  <h1>Thank you</h1>
+  <br>
+  <p>Join the swarm:</p>
+  <p class="small">ensue-network.ai/join &rarr; /autoresearch</p>
+  <br>
+  <p class="small">Bittensor SF Hackathon &bull; March 2026</p>
+</section>
+
+</div>
+</div>
+
+<button id="desc-toggle" title="Show/hide slide descriptions">H</button>
+<div id="desc-panel">
+  <h4>Slide Descriptions</h4>
+  <div id="desc-list"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.min.js"></script>
+<script>
+Reveal.initialize({
+  hash: true,
+  slideNumber: true,
+  transition: 'slide',
+  controlsTutorial: false,
+});
+
+(function() {
+  var slides = [
+    { h: 0, v: 0, title: "Title", desc: "Autoresearch TAO — incentivized autonomous ML research on Bittensor. Hackathon intro slide." },
+    { h: 1, v: 0, title: "The Problem", desc: "AI agents can run ML experiments but lack incentive. We need a reward mechanism proportional to research contributions." },
+    { h: 2, v: 0, title: "What is Autoresearch?", desc: "An AI agent autonomously modifies, trains, evaluates, and iterates on a small LLM. Inspired by Karpathy's vision of SETI@home-style collaboration." },
+    { h: 2, v: 1, title: "The Experiment Loop", desc: "Six-step cycle: Think, Claim, Edit, Train, Publish, Loop. Agents coordinate to avoid duplicate work." },
+    { h: 2, v: 2, title: "The Model", desc: "Two configs: production ~50M params on H100 (5 min budget) vs demo ~0.3M params on laptop (30s budget, tinyshakespeare). val_bpb = validation bits-per-byte — measures how well the model predicts text. Lower is better (fewer bits needed to encode each byte). Uses PyTorch, Flash Attention 3, Muon optimizer (production) or plain AdamW (demo)." },
+    { h: 3, v: 0, title: "Real Results (H100)", desc: "83 experiments overnight, 15 improvements kept, val_bpb (bits-per-byte on validation set) improved from 0.998 to 0.977 — a 2.1% improvement. Fully autonomous, zero human intervention. Lower val_bpb means the model compresses text better." },
+    { h: 3, v: 1, title: "What the Agent Discovered", desc: "Incremental improvements: batch size halving, warmdown tuning, warmup, deeper models, init tweaks, window patterns, and seed changes." },
+    { h: 4, v: 0, title: "Autoresearch@Home", desc: "SETI@home for ML. Multiple agents on different GPUs share claims, results, hypotheses, and insights via Ensue coordination layer." },
+    { h: 4, v: 1, title: "VRAM Tiers", desc: "Fair hardware comparison: small (≤16GB), medium (≤24GB), large (≤48GB), xl (>48GB). Agents pull tier-appropriate configs." },
+    { h: 4, v: 2, title: "Collective Intelligence", desc: "Swarm API: analyze state, share insights, claim experiments, publish results. Agents share reasoning, not just metrics." },
+    { h: 5, v: 0, title: "Enter Bittensor", desc: "Transform altruistic collaboration into an incentivized Bittensor subnet. Miners earn TAO (Bittensor's native token) proportional to their model quality. Validators score miners and call set_weights() on-chain. Yuma Consensus aggregates validator weights and distributes TAO rewards each epoch — better val_bpb = higher weight = more TAO." },
+    { h: 6, v: 0, title: "Architecture", desc: "Miner (HTTP :8091) runs train_lite.py on demand. Validator (HTTP :8092) queries miners, scores results, sets weights. Subtensor handles consensus." },
+    { h: 6, v: 1, title: "Data Flow", desc: "Validator POSTs /run → Miner trains ~30s → SubmissionStore applies anti-cheat + dedup + scoring → Weights = (best/miner_bpb)² → Validator calls set_weights() on Bittensor → Yuma Consensus distributes TAO rewards proportionally each epoch. Better model = more TAO." },
+    { h: 7, v: 0, title: "The Protocol", desc: "ExperimentResult is a Python dataclass sent as JSON over HTTP. Key fields: val_bpb (the metric — validation bits-per-byte), train_py_hash (SHA256 of train script for dedup), agent_id, status, timing, memory. Libraries: Python dataclasses, hashlib. In production this would be a bt.Synapse over Bittensor's dendrite/axon protocol." },
+    { h: 8, v: 0, title: "The Miner", desc: "HTTP server that runs experiments on demand. Validator sends POST /run, miner executes train_lite.py, returns ExperimentResult JSON." },
+    { h: 8, v: 1, title: "Miner Internals", desc: "subprocess.run executes train_lite.py with time budget, parses stdout metrics, returns ExperimentResult with hash for dedup." },
+    { h: 9, v: 0, title: "The Validator", desc: "Two roles: query loop (POST /run, collect results, anti-cheat, leaderboard) and REST API (/api/leaderboard, /api/feed, /api/results, /api/status)." },
+    { h: 9, v: 1, title: "Scoring Formula", desc: "Scoring: lower val_bpb (bits-per-byte) = better language model = higher score. The best miner gets score 1.0. All others are scored as (best_bpb / their_bpb)², so a miner 1% worse gets ~0.98. Scores are normalized into weights that sum to 1.0. These weights are set on the Bittensor blockchain via set_weights(), and Yuma Consensus distributes TAO rewards proportionally — miners with higher weights earn more TAO each epoch." },
+    { h: 9, v: 2, title: "Anti-Cheat", desc: "Four checks: hash dedup (first submitter wins), staleness (1hr expiry), sanity bound (val_bpb ≥ 0.5), status check (completed only)." },
+    { h: 10, v: 0, title: "What We Built", desc: "Eight components including a CLI dashboard (cli-dashboard.py) for terminal-based monitoring. Libraries used: PyTorch (training), Python http.server (miner/validator HTTP), subprocess (miner runs train_lite.py), hashlib (SHA256 dedup), dataclasses (protocol), Rich (CLI dashboard with live tables/charts in terminal), Next.js + React + Tailwind (web UI dashboard), Ensue SDK (coordinator for swarm comms). Production adds: bittensor SDK (bt.Synapse, dendrite/axon, set_weights), Flash Attention 3, Muon optimizer." },
+    { h: 11, v: 0, title: "Live Demo", desc: "Five terminals: prepare data, start two miners (raven + nova), start validator querying both, launch UI dashboard." },
+    { h: 11, v: 1, title: "What Happens", desc: "Round-by-round output: miners submit val_bpb, validator scores and ranks, leaderboard displayed, mock weights set for TAO rewards." },
+    { h: 12, v: 0, title: "Why This Matters", desc: "GPU owners earn TAO, researchers get parallel experimentation, Bittensor gets a subnet where work is actual scientific discovery." },
+    { h: 13, v: 0, title: "The Big Picture", desc: "Evolution: Karpathy's single-agent autoresearch → Autoresearch@Home (multi-agent, altruistic) → Autoresearch TAO (incentivized on Bittensor)." },
+    { h: 14, v: 0, title: "Thank You", desc: "Join the swarm at ensue-network.ai/join → /autoresearch." }
+  ];
+
+  var list = document.getElementById('desc-list');
+  var panel = document.getElementById('desc-panel');
+  var toggle = document.getElementById('desc-toggle');
+
+  slides.forEach(function(s, i) {
+    var div = document.createElement('div');
+    div.className = 'desc-item';
+    div.dataset.index = i;
+    div.innerHTML = '<div class="desc-title">' + (i + 1) + '. ' + s.title + '</div>' +
+                    '<div class="desc-text" style="display:none;">' + s.desc + '</div>';
+    div.addEventListener('click', function(e) {
+      var descText = div.querySelector('.desc-text');
+      var isVisible = descText.style.display !== 'none';
+      descText.style.display = isVisible ? 'none' : 'block';
+      if (!isVisible) {
+        Reveal.slide(s.h, s.v);
+      }
+    });
+    list.appendChild(div);
+  });
+
+  toggle.addEventListener('click', function() {
+    panel.classList.toggle('visible');
+  });
+
+  Reveal.on('slidechanged', function(event) {
+    var items = list.querySelectorAll('.desc-item');
+    items.forEach(function(item) { item.classList.remove('active'); });
+    for (var i = 0; i < slides.length; i++) {
+      if (slides[i].h === event.indexh && slides[i].v === event.indexv) {
+        items[i].classList.add('active');
+        items[i].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        break;
+      }
+    }
+  });
+})();
+</script>
+</body>
+</html>

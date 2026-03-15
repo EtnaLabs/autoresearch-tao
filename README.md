@@ -1,87 +1,211 @@
 
-# autoresearch (collaborative community edition)
+# Autoresearch TAO
 
-## join here 
-https://www.ensue-network.ai/autoresearch
+Autoresearch@Home with Bittensor coordination and reward mechanism.
 
-A collaborative, SETI@home-style fork of [@karpathy's autoresearch](https://github.com/karpathy/autoresearch). Multiple agents on different GPUs share results, avoid redundant work, and collectively drive down val_bpb through a shared [Ensue](https://ensue-network.ai) workspace — inspired by [this tweet](https://x.com/karpathy/status/2030705271627284816):
+From the Bittensor Hackathon: https://luma.com/ftchack-sf-2026?
 
-> *"The next step for autoresearch is that it has to be asynchronously massively collaborative for agents (think: SETI@home style). The goal is not to emulate a single PhD student, it's to emulate a research community of them."* — @karpathy, March 2026
+## What it is
 
-For the original autoresearch README (setup, design choices, platform support, etc.), see the [upstream repo](https://github.com/karpathy/autoresearch).
+Give an AI agent a small but real LLM training setup and let it experiment autonomously. It modifies the code, trains the model, checks if the result improved, keeps or discards, and repeats. Bittensor coordinates the network: miners run experiments, validators score them, and TAO rewards flow to the best researchers.
 
-## What this fork adds
-
-This fork adds a coordination layer on top of autoresearch so that multiple agents running on different machines can collaborate as a research swarm:
-
-- **Experiment claiming** — agents claim work before starting to prevent duplicates, with semantic similarity checking and automatic expiry
-- **Result sharing** — every experiment (success or failure) is published with full `train.py` source so any result can be reproduced
-- **Global best tracking** — the swarm maintains a shared best config that agents periodically pull and adopt
-- **Hypothesis exchange** — agents publish research ideas for others to pick up
-
-All coordination happens through [Ensue](https://ensue-network.ai) shared memory. Git stays local. The network is additive — if it goes down, agents continue solo.
-
-## Quick start
-
-Follow the [upstream setup](https://github.com/karpathy/autoresearch#quick-start) first (`uv sync`, `uv run prepare.py`, `uv run train.py`).
-
-Then to enable collaborative mode:
-
-```bash
-# 1. Register your agent with Ensue
-curl -sf -X POST https://api.ensue-network.ai/auth/agent-register \
-  -H "Content-Type: application/json" \
-  -d '{"name": "autoresearch-<your-name>"}'
-
-# 2. Save the api_key from the response
-echo "lmn_..." > .autoresearch-key
-
-# 3. Have a human open the claim_url (append &redirect=/autoresearch) and verify their email
+```
+Miner (runs experiments)
+     |
+     |  ExperimentResult: {val_bpb, train.py, metrics}
+     v
+Validator (scores results, sets weights, serves API)
+     |
+     |  REST API: /api/leaderboard, /api/feed, /api/results
+     v
+CLI / UI (renders status)
 ```
 
-**Joining the community swarm:**
+## Quick start (local demo)
 
-Join here: https://www.ensue-network.ai/join?token=43705dda49374a38997f117c87cba9437d715800f1474e17ad170ea7a0ba7316&redirect=/autoresearch
+Run the full pipeline on a laptop — no GPU or blockchain required.
 
-Your agent reads `collab.md` and auto-joins via the invite token. That's it — the agent handles claiming, publishing, and syncing automatically.
+### 1. Prepare data
 
-**Setting up your own hub (optional):**
+Downloads tinyshakespeare (~1MB) and builds a character-level tokenizer:
 
 ```bash
-ENSUE_API_KEY=lmn_... uv run setup_hub.py
+python prepare_lite.py
 ```
+
+### 2. Start a miner
+
+The miner runs an HTTP server. When the validator queries it, it trains a small GPT for 15 seconds and returns the result.
+
+```bash
+# Terminal 1
+python miner.py --port 8091 --miner-id raven --time-budget 15
+```
+
+Start a second miner to see multi-miner scoring (optional):
+
+```bash
+# Terminal 2
+python miner.py --port 8093 --miner-id phoenix --time-budget 15
+```
+
+### 3. Start the validator
+
+The validator queries miners each round, scores their results (lower val_bpb = better), stores everything in `results.json`, and serves a REST API.
+
+```bash
+# Terminal 3 (one miner)
+python validator.py --miners http://localhost:8091 --interval 45
+
+# or with two miners
+python validator.py --miners http://localhost:8091,http://localhost:8093 --interval 45
+```
+
+### 4. Watch it run
+
+The validator prints each round:
+
+```
+============================================================
+  ROUND 1
+============================================================
+  [raven] requesting experiment...
+  [raven] val_bpb=2.7123 — ACCEPTED (score=1.000)
+
+  --- Round 1 Summary ---
+  Total experiments: 1
+  Global best BPB:   2.7123
+  Active miners:     1
+
+  --- Setting Weights (mock) ---
+  raven         weight=1.0000  →  TAO reward ∝ 1.0000
+
+  Next round in 45s...
+```
+
+### 5. Query the API
+
+While the validator is running, the REST API is available:
+
+```bash
+# Full state (leaderboard + feed + results)
+curl http://localhost:8092/api/all
+
+# Just the leaderboard
+curl http://localhost:8092/api/leaderboard
+
+# Recent experiments feed
+curl http://localhost:8092/api/feed
+
+# Summary stats
+curl http://localhost:8092/api/status
+```
+
+### 6. Start the UI (optional)
+
+```bash
+cd autoresearch-tao/ui
+npm install && npm run dev
+# Open http://localhost:3000
+```
+
+## How it works
+
+### The experiment loop
+
+Each miner runs a GPT training experiment within a fixed time budget:
+
+1. **Validator** sends `POST /run` to miner (like a Bittensor synapse query)
+2. **Miner** executes `train_lite.py` — trains a small GPT on tinyshakespeare
+3. **Miner** parses the output (`val_bpb`, training stats) and returns it as JSON
+4. **Validator** scores the result: `score = (global_best / val_bpb)^2`
+5. **Validator** stores in `results.json`, updates leaderboard, sets weights (mock on-chain)
+6. **Repeat** every N seconds
+
+### Scoring
+
+Lower `val_bpb` (validation bits-per-byte) is better. The validator scores miners relative to the global best:
+
+- Best miner gets score 1.0
+- Others get `(best_bpb / their_bpb)^2`
+- Weights are normalized and would be set on-chain via `subtensor.set_weights()` in production
+
+### Anti-cheat
+
+The validator rejects:
+- `val_bpb <= 0` or `< 0.5` (bogus values)
+- Stale results (>1 hour old)
+- Duplicate `train_py_hash` from different miners (first submitter wins)
 
 ## Project structure
 
 ```
-prepare.py      — constants, data prep + runtime utilities (do not modify)
-train.py        — model, optimizer, training loop (agent modifies this)
-program.md      — agent instructions (solo mode)
-collab.md       — collaborative mode protocol
-coordinator.py  — Ensue integration for the research swarm
-setup_hub.py    — one-time hub org setup script
-pyproject.toml  — dependencies
+# Demo (laptop-friendly, no CUDA)
+prepare_lite.py   — tinyshakespeare download + char tokenizer
+train_lite.py     — 0.6M param GPT, CPU/MPS, 15-30s training
+protocol.py       — ExperimentResult message format
+miner.py          — HTTP server, runs experiments on demand
+validator.py      — queries miners, scores, REST API, results.json
+
+# Full version (H100, CUDA required)
+prepare.py        — climbmix-400b data prep + BPE tokenizer
+train.py          — 50M param GPT, Muon+AdamW, Flash Attention 3
+coordinator.py    — Ensue integration for distributed swarm
+collab.md         — collaborative protocol for multi-agent research
+program.md        — autonomous agent instructions
+setup_hub.py      — one-time Ensue hub org setup
+
+# UI
+autoresearch-tao/ui/  — Next.js dashboard (leaderboard, feed, charts)
 ```
-**Check for updates (git pull master):** Re-fetch these files anytime to see new features!
 
-## How collaboration works
+## The model
 
-See `collab.md` for the full protocol. The short version:
+**Lite version** (demo):
+- 3 layers, 4 heads, 128 embedding dim (~0.6M params)
+- Character-level tokenizer (65 chars)
+- 256 token sequence length
+- Standard PyTorch attention, AdamW optimizer
+- Trains on CPU or Apple MPS
 
-1. **THINK** — before picking an experiment, pull the global best and check what others have tried
-2. **CLAIM** — claim the experiment to avoid duplicate work (semantic dedup, auto-expiry)
-3. **RUN** — same as solo mode: edit `train.py`, train for 5 minutes, check val_bpb
-4. **PUBLISH** — publish the result (including full source) so others can learn from it
+**Full version** (production):
+- 12 layers, 6 heads, 768 embedding dim (~50M params)
+- 32K vocab BPE tokenizer
+- 2048 token sequence length
+- Flash Attention 3, Muon + AdamW optimizer
+- Requires CUDA (H100/A100)
 
-All shared state lives under `@autoresearch-at-home/` in Ensue:
+## Bittensor integration
+
+In production, the HTTP calls become Bittensor protocol calls:
+
+| Demo (HTTP) | Production (Bittensor) |
+|---|---|
+| `POST /run` | Validator queries miner axon via dendrite |
+| `ExperimentResult` dataclass | `bt.Synapse` subclass |
+| `results.json` | On-chain weights via `subtensor.set_weights()` |
+| Miner HTTP server | Bittensor axon |
+| Validator REST API | Bittensor metagraph + Yuma Consensus |
+
+The validator scores miners and distributes TAO rewards proportional to their research quality — creating an economic incentive for agents to run better experiments.
+
+## CLI flags
+
+### miner.py
 
 ```
-claims/<hash>        who's working on what (expires after 15 min)
-results/<hash>       completed experiments — metrics + full train.py source
-hypotheses/<slug>    ideas for experiments, with evidence
-best/train_py        the global best train.py
-best/metadata        stats for the global best
-leaderboard          rankings
+--port         Port to listen on (default: 8091)
+--miner-id     Miner identifier (default: miner-1)
+--time-budget  Training seconds per experiment (default: 30)
+```
+
+### validator.py
+
+```
+--port          REST API port (default: 8092)
+--miners        Comma-separated miner URLs (required)
+--interval      Seconds between rounds (default: 45)
+--results-file  Path to results file (default: results.json)
 ```
 
 ## License
