@@ -69,24 +69,19 @@ def hash_file(path: str) -> str:
 # ---------------------------------------------------------------------------
 
 class MinerState:
-    def __init__(self, miner_id: str, time_budget: int, reward_wallet: str = ""):
+    def __init__(self, miner_id: str, time_budget: int, reward_wallet: str = "",
+                 saturn_runner=None):
         self.miner_id = miner_id
         self.time_budget = time_budget
         self.reward_wallet = reward_wallet  # SS58 address for receiving rewards
+        self.saturn_runner = saturn_runner  # SaturnRunner instance or None for local
         self.exp_counter = 0
         self.running = False
         self.run_lock = threading.Lock()
 
-    def run_experiment(self) -> ExperimentResult:
-        """Run train_lite.py and return the parsed result as a synapse."""
-        self.exp_counter += 1
-        exp_num = self.exp_counter
-        miner_id = self.miner_id
-
+    def _run_local(self, exp_num: int) -> str:
+        """Run train_lite.py locally via subprocess. Returns stdout."""
         script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "train_lite.py")
-        train_py_hash = hash_file(script)
-
-        print(f"[{miner_id}] Starting experiment #{exp_num}...")
 
         env = os.environ.copy()
         env["AUTORESEARCH_TIME_BUDGET"] = str(self.time_budget)
@@ -100,17 +95,44 @@ class MinerState:
         )
 
         if proc.returncode != 0:
-            print(f"[{miner_id}] Experiment #{exp_num} FAILED (exit code {proc.returncode})")
             stderr_tail = proc.stderr[-500:] if proc.stderr else ""
+            raise RuntimeError(f"exit code {proc.returncode}: {stderr_tail}")
+
+        return proc.stdout
+
+    def _run_saturn(self, exp_num: int) -> str:
+        """Run train_lite.py on Saturn Cloud GPU. Returns stdout."""
+        print(f"[{self.miner_id}] Offloading experiment #{exp_num} to Saturn Cloud...")
+        return self.saturn_runner.run_training(time_budget=self.time_budget)
+
+    def run_experiment(self) -> ExperimentResult:
+        """Run train_lite.py and return the parsed result as a synapse."""
+        self.exp_counter += 1
+        exp_num = self.exp_counter
+        miner_id = self.miner_id
+
+        script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "train_lite.py")
+        train_py_hash = hash_file(script)
+
+        mode = "Saturn Cloud" if self.saturn_runner else "local"
+        print(f"[{miner_id}] Starting experiment #{exp_num} ({mode})...")
+
+        try:
+            if self.saturn_runner:
+                stdout = self._run_saturn(exp_num)
+            else:
+                stdout = self._run_local(exp_num)
+        except Exception as e:
+            print(f"[{miner_id}] Experiment #{exp_num} FAILED: {e}")
             return ExperimentResult(
                 agent_id=miner_id,
                 status="failed",
-                description=f"exit code {proc.returncode}: {stderr_tail}",
+                description=str(e)[-500:],
                 experiment_key=f"{miner_id}--exp-{exp_num}",
                 result_timestamp=time.time(),
             )
 
-        metrics = parse_train_output(proc.stdout)
+        metrics = parse_train_output(stdout)
 
         if not metrics.get("val_bpb"):
             print(f"[{miner_id}] Experiment #{exp_num} FAILED (no val_bpb in output)")
@@ -250,7 +272,8 @@ def create_forward_fn(state: MinerState):
 
 
 def create_blacklist_fn():
-    def blacklist(synapse: ExperimentResult) -> tuple[bool, str]:
+    from typing import Tuple
+    def blacklist(synapse: ExperimentResult) -> Tuple[bool, str]:
         return False, ""
     return blacklist
 
@@ -306,7 +329,7 @@ def main():
     parser.add_argument("--local", action="store_true",
                         help="Run in local HTTP mode (no Bittensor)")
     parser.add_argument("--port", type=int, default=8091, help="[local mode] HTTP port")
-    parser.add_argument("--validator", type=str, default="http://localhost:8092",
+    parser.add_argument("--validator", type=str, default=os.environ.get("VALIDATOR_URL", "http://localhost:8092"),
                         help="[local mode] Validator URL to register with")
     parser.add_argument("--external-url", type=str, default="",
                         help="[local mode] External URL for this miner (e.g. ngrok)")
@@ -326,6 +349,16 @@ def main():
                         help="External IP for axon (if behind NAT)")
     parser.add_argument("--axon.external_port", type=int, default=None, dest="axon_external_port",
                         help="External port for axon (if behind NAT)")
+    # Saturn Cloud GPU args
+    parser.add_argument("--saturn", action="store_true",
+                        help="Offload training to Saturn Cloud GPU (requires SATURN_TOKEN env var)")
+    parser.add_argument("--saturn-gpu", type=str, default="t4",
+                        choices=["t4", "a10g", "v100", "h100", "h200"],
+                        help="Saturn Cloud GPU type (default: t4 at $0.15/hr)")
+    parser.add_argument("--saturn-repo", type=str, default="",
+                        help="Git repo URL for Saturn Cloud to pull code from")
+    parser.add_argument("--saturn-branch", type=str, default="master",
+                        help="Git branch for Saturn Cloud job")
     # Shared args
     parser.add_argument("--miner-id", type=str, default="miner-1", help="Miner identifier")
     parser.add_argument("--time-budget", type=int, default=30, help="Training time budget in seconds")
@@ -335,18 +368,34 @@ def main():
 
     local_mode = args.local or args.netuid is None
 
+    # Set up Saturn Cloud runner if requested
+    saturn_runner = None
+    if args.saturn:
+        from saturn_runner import SaturnRunner, print_available_gpus
+        print_available_gpus()
+        print()
+        saturn_runner = SaturnRunner(
+            gpu=args.saturn_gpu,
+            git_repo_url=args.saturn_repo,
+            git_branch=args.saturn_branch,
+        )
+        print(f"Saturn Cloud: using {args.saturn_gpu.upper()} GPU")
+
     if local_mode:
         # --- Local HTTP mode ---
         state = MinerState(miner_id=args.miner_id, time_budget=args.time_budget,
-                           reward_wallet=args.reward_wallet)
+                           reward_wallet=args.reward_wallet,
+                           saturn_runner=saturn_runner)
 
         miner_url = args.external_url or f"http://localhost:{args.port}"
 
         server = HTTPServer(("0.0.0.0", args.port), LocalMinerHandler)
         server.state = state
 
+        compute = f"Saturn Cloud ({args.saturn_gpu.upper()})" if saturn_runner else "Local"
         print(f"=== Autoresearch Miner (Local Mode) ===")
         print(f"Miner ID:    {args.miner_id}")
+        print(f"Compute:     {compute}")
         print(f"Port:        {args.port}")
         print(f"Miner URL:   {miner_url}")
         print(f"Validator:   {args.validator}")
@@ -396,7 +445,8 @@ def main():
         reward_wallet = args.reward_wallet or wallet.coldkeypub.ss58_address
         bt.logging.info(f"Reward wallet: {reward_wallet}")
 
-        state = MinerState(miner_id=args.miner_id, time_budget=args.time_budget, reward_wallet=reward_wallet)
+        state = MinerState(miner_id=args.miner_id, time_budget=args.time_budget, reward_wallet=reward_wallet,
+                           saturn_runner=saturn_runner)
 
         axon = bt.Axon(wallet=wallet, port=args.axon_port,
                        external_ip=args.axon_external_ip,
